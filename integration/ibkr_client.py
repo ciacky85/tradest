@@ -162,10 +162,19 @@ class IBKRClient:
         """
         if self._ib is not None and self._ib.isConnected():
             try:
+                # Se l'account non è ancora settato, usa il primo disponibile
+                if not self.account_id and self._ib.managedAccounts():
+                    self.account_id = self._ib.managedAccounts()[0]
+
                 # Estrae i valori dall'accountSummary di ib_insync
                 account_values = await self._ib.accountSummaryAsync(self.account_id)
-                summary_map = {val.tag: float(val.value) for val in account_values if val.currency in ("USD", "EUR", "") and val.value.replace(".", "", 1).replace("-", "", 1).isdigit()}
-                
+                summary_map = {}
+                for val in account_values:
+                    try:
+                        summary_map[val.tag] = float(val.value)
+                    except (ValueError, TypeError):
+                        pass
+
                 net_liquidation = summary_map.get("NetLiquidation", 100000.0)
                 total_cash = summary_map.get("TotalCashValue", net_liquidation)
                 buying_power = summary_map.get("BuyingPower", net_liquidation * 4)
@@ -175,41 +184,65 @@ class IBKRClient:
                 # Posizioni correnti
                 ib_positions = self._ib.positions(self.account_id)
                 positions_list: list[Position] = []
+                from app.models import TradingDirection
                 for p in ib_positions:
+                    direction = TradingDirection.LONG if p.position >= 0 else TradingDirection.SHORT
                     pos_obj = Position(
                         symbol=p.contract.symbol,
-                        quantity=float(p.position),
-                        average_cost=float(p.avgCost),
-                        current_price=float(p.avgCost), # aggiornato poi da market data
-                        market_value=float(p.position * p.avgCost),
+                        direction=direction,
+                        quantity=abs(float(p.position)),
+                        entry_price=float(p.avgCost),
+                        current_price=float(p.avgCost),
                         unrealized_pnl=0.0,
                     )
                     positions_list.append(pos_obj)
 
-                return Portfolio(
-                    account_id=self.account_id or (self._ib.managedAccounts()[0] if self._ib.managedAccounts() else "SIM_IBKR"),
-                    net_liquidation=net_liquidation,
-                    total_cash=total_cash,
+                from app.models import AccountSummary
+                acc_summary = AccountSummary(
+                    account_id=self.account_id or "IBKR_PORTFOLIO",
+                    total_value=net_liquidation,
+                    cash_balance=total_cash,
                     buying_power=buying_power,
                     unrealized_pnl=unrealized_pnl,
-                    realized_pnl=realized_pnl,
+                    realized_pnl_today=realized_pnl,
+                    margin_used=summary_map.get("FullInitMarginReq", 0.0),
+                    timestamp=datetime.utcnow(),
+                )
+
+                return Portfolio(
+                    account=acc_summary,
                     positions=positions_list,
-                    updated_at=datetime.utcnow(),
+                    pending_orders=[],
+                    daily_trades=[],
+                    daily_pnl=unrealized_pnl + realized_pnl,
+                    trades_count_today=len(self._ib.fills()),
+                    win_rate_today=0.0,
+                    last_sync=datetime.utcnow(),
                 )
             except Exception as e:
                 logger.error("Errore recupero portfolio da ib_insync", error=str(e))
 
         # Fallback coerente per modalità simulazione / broker non ancora connesso
+        from app.models import AccountSummary
         sim_account = f"{'DU' if self.trading_mode == 'paper' else 'U'}_SIMULATED_{self.username or 'USER'}"
         return Portfolio(
-            account_id=self.account_id or sim_account,
-            net_liquidation=100000.0,
-            total_cash=100000.0,
-            buying_power=400000.0,
-            unrealized_pnl=0.0,
-            realized_pnl=0.0,
+            account=AccountSummary(
+                account_id=self.account_id or sim_account,
+                total_value=100000.0,
+                cash_balance=100000.0,
+                buying_power=400000.0,
+                unrealized_pnl=0.0,
+                realized_pnl_today=0.0,
+                margin_used=0.0,
+                timestamp=datetime.utcnow(),
+            ),
             positions=[],
-            updated_at=datetime.utcnow(),
+            pending_orders=[],
+            daily_trades=[],
+            daily_pnl=0.0,
+            trades_count_today=0,
+            win_rate_today=0.0,
+            last_sync=datetime.utcnow(),
         )
 
     async def get_trades(self) -> list[TradeRecord]:

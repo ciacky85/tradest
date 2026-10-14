@@ -239,7 +239,7 @@
             <option value="paper">📄 Paper Trading (Simulazione)</option>
             <option value="live">💰 Live Trading (Reale)</option>
           </select>
-          <span class="text-[11px] text-amber-400 mt-1 block"><i class="fa-solid fa-triangle-exclamation"></i> Con "nautilususer/D90c1df4t@!" accedi al portafoglio demo (Paper)</span>
+          <span class="text-[11px] text-amber-400 mt-1 block"><i class="fa-solid fa-triangle-exclamation"></i> Con "lhungq693/secretpaper" accedi al portafoglio demo (Paper)</span>
         </div>
 
         <details class="text-xs">
@@ -247,7 +247,7 @@
           <div class="mt-3 space-y-3">
             <div>
               <label class="block text-xs font-medium text-slate-300 mb-1">Host Gateway</label>
-              <input type="text" id="ibkrHostInput" value="172.24.0.2"
+              <input type="text" id="ibkrHostInput" value="192.168.1.212"
                 class="input-field w-full px-3 py-2 rounded-lg text-xs" />
             </div>
             <div>
@@ -600,13 +600,14 @@
           const data = await res.json();
           if (data.portfolio) {
             const p = data.portfolio;
-            document.getElementById('portfolioAccountId').innerText = p.account_id || '-';
-            document.getElementById('portfolioNetLiq').innerText = `$${p.net_liquidation.toFixed(2)}`;
-            document.getElementById('portfolioCash').innerText = `$${p.total_cash.toFixed(2)}`;
-            document.getElementById('portfolioBuyingPower').innerText = `$${p.buying_power.toFixed(2)}`;
-            document.getElementById('portfolioTradingMode').innerText = data.trading_mode.toUpperCase();
+            const acc = p.account || {};
+            document.getElementById('portfolioAccountId').innerText = acc.account_id || '-';
+            document.getElementById('portfolioNetLiq').innerText = `€${(acc.total_value || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('portfolioCash').innerText = `€${(acc.cash_balance || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('portfolioBuyingPower').innerText = `€${(acc.buying_power || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('portfolioTradingMode').innerText = (data.trading_mode || 'PAPER').toUpperCase();
             document.getElementById('portfolioDataBox').classList.remove('hidden');
-            showIBKRResultBox(true, 'Portfolio caricato con successo');
+            showIBKRResultBox(true, `Portfolio caricato con successo. Trovate ${p.positions ? p.positions.length : 0} posizioni attive.`);
           }
         }
       } catch (e) {

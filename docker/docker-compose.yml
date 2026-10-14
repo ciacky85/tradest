@@ -17,7 +17,7 @@ services:
       - APP_HOST=0.0.0.0
       - APP_PORT=8080
       - APP_LOG_LEVEL=DEBUG
-      - IBKR_HOST=172.24.0.2
+      - IBKR_HOST=192.168.1.212
       - IBKR_PORT=4004
       - IBKR_CLIENT_ID=500
       - NOTIFY_WEBHOOK_URL=http://192.168.1.212:9008/notify

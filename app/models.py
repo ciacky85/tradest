@@ -219,6 +219,7 @@ class AIEmergencyAssessment(BaseModel):
 
 class AccountSummary(BaseModel):
     """Riepilogo account IBKR."""
+    account_id: str = ""
     total_value: float = 0.0
     cash_balance: float = 0.0
     buying_power: float = 0.0

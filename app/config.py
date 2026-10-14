@@ -90,12 +90,12 @@ class Settings(BaseSettings):
     gemini_temperature: float = 0.2
 
     # --- Interactive Brokers ---
-    ibkr_host: str = "172.24.0.2"
+    ibkr_host: str = "192.168.1.212"
     ibkr_port: int = 4004
     ibkr_client_id: int = 500
     ibkr_account_id: str = ""
-    ibkr_username: str = "nautilususer"
-    ibkr_password: str = "D90c1df4t@!"
+    ibkr_username: str = "lhungq693"
+    ibkr_password: str = "secretpaper"
     ibkr_timeout: int = 30
 
     # --- Database ---

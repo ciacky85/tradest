@@ -514,9 +514,10 @@ async def test_ibkr_connection() -> dict[str, Any]:
             "connected": True,
             "message": f"Connessione a IBKR stabilita con successo ({ib_client.host}:{ib_client.port})",
             "trading_mode": ib_client.trading_mode,
-            "account_id": portfolio.account_id,
-            "net_liquidation": portfolio.net_liquidation,
-            "total_cash": portfolio.total_cash,
+            "account_id": portfolio.account.account_id,
+            "net_liquidation": portfolio.account.total_value,
+            "total_cash": portfolio.account.cash_balance,
+            "positions_count": len(portfolio.positions),
         }
     else:
         return {

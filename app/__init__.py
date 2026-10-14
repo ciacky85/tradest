@@ -4,4 +4,4 @@ Modulo principale dell'applicazione FastAPI Tradest.
 Contiene entry point, configurazioni e modelli dati.
 """
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"

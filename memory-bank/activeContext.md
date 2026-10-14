@@ -6,7 +6,7 @@
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
 - **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
-- **IBKR Gateway:** `172.24.0.2:4004` (VNC: `5900`, Client ID 500)
+- **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`, Client ID 500, Account verificato: `DUR222070`)
 - **Portainer Stack:** Porta `18881` esposta, volume esterno `/srv/docker_conf/configs/tradest_conf`
 - **Web Dashboard:** Dashboard Web attiva su `/` con autenticazione Google Gemini, selezione dinamica del modello e test live scelte di trading
 
