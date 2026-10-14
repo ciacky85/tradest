@@ -1,0 +1,53 @@
+# ==============================================================================
+# Portainer Stack - Tradest AI Trading Bot
+# Porta Host esposta: 18881
+# Directory Host configurazioni: /srv/docker_conf/configs/tradest_conf
+# ==============================================================================
+version: '3.8'
+
+services:
+  tradest:
+    image: ghcr.io/ciacky85/tradest:latest
+    build:
+      context: https://github.com/ciacky85/tradest.git#main
+      dockerfile: docker/Dockerfile
+    container_name: tradest
+    restart: unless-stopped
+    ports:
+      - "18881:8080"
+    environment:
+      - APP_NAME=Tradest-AI-Bot
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      - APP_LOG_LEVEL=INFO
+      - IBKR_HOST=192.168.1.212
+      - IBKR_PORT=4004
+      - IBKR_CLIENT_ID=500
+      - NOTIFY_WEBHOOK_URL=http://192.168.1.212:9008/notify
+      - NOTIFY_ENABLED=true
+      - TRADING_ENABLED=false
+      - TRADING_MODE=paper
+      - MAX_DAILY_LOSS=500.0
+      - EMERGENCY_STOP_LOSS=1000.0
+      - AI_MIN_CONFIDENCE=0.70
+      - TIMEZONE=Europe/Rome
+      - TZ=Europe/Rome
+    volumes:
+      # Mappatura cartella esterna richiesta dall'utente
+      - /srv/docker_conf/configs/tradest_conf/config:/app/config:z
+      - /srv/docker_conf/configs/tradest_conf/data:/app/data:z
+      - /srv/docker_conf/configs/tradest_conf/logs:/app/logs:z
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tradest-network
+
+networks:
+  tradest-network:
+    driver: bridge
