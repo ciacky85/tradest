@@ -26,6 +26,10 @@ services:
       - APP_PORT=8080
       - APP_LOG_LEVEL=INFO
       - TRADEST_CONF_DIR=/tradest_conf
+      - AI_PROVIDER=omniroute
+      - AI_BASE_URL=http://192.168.1.212:9292/v1
+      - AI_API_KEY=sk-92fbd7ff0bd42a7d-69ee29-81742676
+      - GEMINI_MODEL=carlo-gemini
       - IBKR_HOST=192.168.1.212
       - IBKR_PORT=4004
       - IBKR_CLIENT_ID=500

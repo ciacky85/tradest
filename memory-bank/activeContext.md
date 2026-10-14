@@ -1,7 +1,7 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.0.8`
+- **Versione Corrente:** `1.0.9`
 - **Data:** 2026-10-14
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
@@ -11,7 +11,8 @@
 - **Web Dashboard:** Dashboard Web attiva su `/` con autenticazione Google Gemini, selezione dinamica del modello e test live scelte di trading
 
 ## Note Operative
-1. **Versione 1.0.8:** Estrazione e visualizzazione completa dei dati del portafoglio IBKR (posizioni dettagliate con P&L, prezzi di mercato e carico, tipo strumento e borsa; transazioni ed ordini). Normalizzazione e diagnostica per modello `gemini-2.5-flash` e risoluzione gestione quote 429.
+1. **Versione 1.0.9:** Supporto nativo al gateway Omniroute / Antigravity su `http://192.168.1.212:9292/v1` con modelli `carlo-gemini`, `antigravity/gemini-3.8-flash-tiered`, ecc. Risolto definitivamente il problema delle quote 429! Credenziali IBKR precompilate di default su `lhungq693` / `secretpaper`.
+2. **Versione 1.0.8:** Estrazione e visualizzazione completa dei dati del portafoglio IBKR (posizioni dettagliate con P&L, prezzi di mercato e carico, tipo strumento e borsa; transazioni ed ordini). Normalizzazione e diagnostica per modello `gemini-2.5-flash` e risoluzione gestione quote 429.
 2. **Versione 1.0.7:** Impostate le credenziali predefinite `nautilususer` e `D90c1df4t@!` per l'utenza IBKR. Impostato di default il modello `gemini-2.5-flash` per superare i limiti di quota 429 di Gemini 1.5 Pro.
 2. **Versione 1.0.6:** Completato l'allineamento globale dell'indirizzo IP di Interactive Brokers Gateway a `192.168.1.212:4004` su tutta la codebase (Docker compose, Portainer stack, config Pydantic, template HTML e documentazione).
 2. **Versione 1.0.5:** Connessione verificata con successo dal vivo con `ib_insync` su `192.168.1.212:4004`, rilevato account `DUR222070`, saldo €990.477 e 4 posizioni reali.

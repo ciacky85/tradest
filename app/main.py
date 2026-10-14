@@ -48,8 +48,10 @@ logger = get_logger("app.main")
 # Modelli Pydantic per le API di Gemini
 # ---------------------------------------------------------------------------
 class GeminiConfigRequest(BaseModel):
+    provider: Optional[str] = "omniroute"  # 'omniroute' oppure 'google'
+    base_url: Optional[str] = "http://192.168.1.212:9292/v1"
     api_key: Optional[str] = None
-    model: Optional[str] = "gemini-2.5-flash"
+    model: Optional[str] = "carlo-gemini"
     temperature: Optional[float] = 0.2
 
 
@@ -86,15 +88,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await db.connect()
         logger.info("Database inizializzato con successo")
 
-        # Ripristina configurazione Gemini salvata se presente
-        saved_key = await db.get_config("gemini_api_key")
+        # Ripristina configurazione AI salvata se presente
+        saved_prov = await db.get_config("ai_provider")
+        saved_url = await db.get_config("ai_base_url")
+        saved_key = await db.get_config("ai_api_key") or await db.get_config("gemini_api_key")
         saved_model = await db.get_config("gemini_model")
         saved_temp = await db.get_config("gemini_temperature")
 
         client = get_gemini_client()
+        if saved_prov:
+            client.provider = saved_prov
+            settings.ai_provider = saved_prov
+        if saved_url:
+            client.base_url = saved_url
+            settings.ai_base_url = saved_url
         if saved_key:
             client.set_api_key(saved_key)
-            settings.gemini_api_key = saved_key
         if saved_model:
             client.set_model(saved_model)
             settings.gemini_model = saved_model
@@ -182,16 +191,18 @@ async def get_dashboard() -> HTMLResponse:
 # ---------------------------------------------------------------------------
 @app.get(
     "/api/gemini/config",
-    summary="Recupera la configurazione attuale di Gemini",
+    summary="Recupera la configurazione attuale di AI (Omniroute / Google)",
     tags=["Google Gemini"],
 )
 async def get_gemini_config() -> dict[str, Any]:
-    """Restituisce lo stato dell'API Key (mascherata) e il modello attualmente selezionato."""
+    """Restituisce provider, base_url, modello e API Key mascherata."""
     cfg = get_settings()
     client = get_gemini_client()
-    key = client.api_key or cfg.gemini_api_key
+    key = client.api_key
     masked = (key[:6] + "..." + key[-4:]) if len(key) > 10 else ("***" if key else "")
     return {
+        "provider": client.provider,
+        "base_url": client.base_url,
         "has_api_key": bool(key),
         "api_key_masked": masked,
         "model": client.model or cfg.gemini_model,
@@ -201,20 +212,34 @@ async def get_gemini_config() -> dict[str, Any]:
 
 @app.post(
     "/api/gemini/config",
-    summary="Salva API Key e modello selezionato per Gemini",
+    summary="Salva configurazione AI (Omniroute / Google)",
     tags=["Google Gemini"],
 )
 async def save_gemini_config(req: GeminiConfigRequest) -> dict[str, Any]:
-    """Aggiorna l'API key Google e il modello selezionato nel database e a runtime."""
+    """Aggiorna provider (omniroute/google), endpoint, modello e chiave."""
     cfg = get_settings()
     client = get_gemini_client()
     db = get_db()
 
+    if req.provider is not None:
+        client.provider = req.provider.strip().lower()
+        cfg.ai_provider = client.provider
+        await db.set_config("ai_provider", client.provider)
+
+    if req.base_url is not None:
+        client.base_url = req.base_url.strip().rstrip("/")
+        cfg.ai_base_url = client.base_url
+        await db.set_config("ai_base_url", client.base_url)
+
     if req.api_key and req.api_key.strip():
         clean_key = req.api_key.strip()
         client.set_api_key(clean_key)
-        cfg.gemini_api_key = clean_key
-        await db.set_config("gemini_api_key", clean_key)
+        if client.provider == "omniroute":
+            cfg.ai_api_key = clean_key
+            await db.set_config("ai_api_key", clean_key)
+        else:
+            cfg.gemini_api_key = clean_key
+            await db.set_config("gemini_api_key", clean_key)
 
     if req.model and req.model.strip():
         clean_model = req.model.strip()
@@ -224,11 +249,12 @@ async def save_gemini_config(req: GeminiConfigRequest) -> dict[str, Any]:
 
     if req.temperature is not None:
         cfg.gemini_temperature = req.temperature
-        await db.set_config("gemini_temperature", req.temperature)
+        await db.set_config("gemini_temperature", str(req.temperature))
 
-    logger.info("Configurazione Gemini aggiornata", model=client.model)
+    logger.info("Configurazione AI aggiornata", provider=client.provider, model=client.model)
     return {
         "status": "updated",
+        "provider": client.provider,
         "model": client.model,
         "has_api_key": bool(client.api_key),
     }

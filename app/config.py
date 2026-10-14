@@ -83,9 +83,12 @@ class Settings(BaseSettings):
     app_port: int = 8080
     app_log_level: str = "INFO"
 
-    # --- Google Gemini AI ---
+    # --- Google Gemini AI & Omniroute / Antigravity Gateway ---
+    ai_provider: Literal["omniroute", "google"] = "omniroute"
+    ai_base_url: str = "http://192.168.1.212:9292/v1"
+    ai_api_key: str = "sk-92fbd7ff0bd42a7d-69ee29-81742676"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "carlo-gemini"
     gemini_max_tokens: int = 4096
     gemini_temperature: float = 0.2
 
@@ -94,8 +97,8 @@ class Settings(BaseSettings):
     ibkr_port: int = 4004
     ibkr_client_id: int = 500
     ibkr_account_id: str = ""
-    ibkr_username: str = "nautilususer"
-    ibkr_password: str = "D90c1df4t@!"
+    ibkr_username: str = "lhungq693"
+    ibkr_password: str = "secretpaper"
     ibkr_timeout: int = 30
 
     # --- Database ---

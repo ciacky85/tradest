@@ -7,7 +7,7 @@
 | **Fase 0** | Planning e Architettura | ✅ Completata | Piano di progetto e todo list definiti |
 | **Fase 1** | Setup Base e Infrastruttura | ✅ Completata | Directory, config, FastAPI, models, SQLite, tests |
 | **Fase 2** | Connessione IBKR e Portfolio Manager | ✅ Completata | Client ID 500, host 192.168.1.212:4004, credenziali salvabili, portfolio estratto |
-| **Fase 3** | Integrazione Google Gemini Pro | 🔲 Non avviata | SDK Gemini 1.5 Pro, prompt structured |
+| **Fase 3** | Integrazione Google Gemini Pro | ✅ Completata | Omniroute / Antigravity Gateway su 192.168.1.212:9292/v1 & Google AI Studio REST nativo, zero 429 quota limits |
 | **Fase 4** | Market Analyzer e Dati Real-time | 🔲 Non avviata | Snapshot XAUUSD, indicatori tecnici, cache |
 | **Fase 5** | Risk Manager e Validazioni | 🔲 Non avviata | Limiti $5000 trade, $500 loss, emergency stop |
 | **Fase 6** | Order Executor | 🔲 Non avviata | Esecuzione ordini IBKR con bracket SL/TP |
