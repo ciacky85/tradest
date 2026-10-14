@@ -1,30 +1,23 @@
 # techContext.md - Tradest AI Trading Bot
 
-## Credenziali e Servizi Esterni (Memorizzate per Tutti i Progetti)
+## Stack Tecnologico e Indipendenza
 
-### 1. GitHub
-- **Account:** `ciacky85`
-- **Personal Access Token:** Salvato nel remote git locale e nelle configurazioni utente protette
-- **Repository Tradest:** `https://github.com/ciacky85/tradest.git`
+Tradest è un'applicazione Python 3.12 moderna e indipendente:
+- **Framework Web & API:** FastAPI + Uvicorn
+- **AI Engine:** Google Gemini (Generative Language API v1beta / `google-generativeai`)
+- **Database:** SQLite asincrono via `aiosqlite`
+- **Broker Connectivity:** Connessione diretta Interactive Brokers tramite `ib_insync` (porta 4004, Client ID 500)
+- **Frontend Dashboard:** HTML5 + Tailwind CSS (via CDN) con gestione a componenti leggeri
 
-### 2. Infrastruttura Server e Portainer
-- **Porta Esposta Tradest:** `18881` (container: `8080`)
+## Stack Portainer e Server
+- **Porta Host:** `18881` (mappata su `8080`)
 - **Cartella Configurazioni Esterne Host:** `/srv/docker_conf/configs/tradest_conf`
-  - `/srv/docker_conf/configs/tradest_conf/config` -> `/app/config`
-  - `/srv/docker_conf/configs/tradest_conf/data` -> `/app/data`
-  - `/srv/docker_conf/configs/tradest_conf/logs` -> `/app/logs`
-- **Portainer Compose:** `docker/docker-compose.portainer.yml`
+  - Contiene: `trading_params.json`, `symbols.json`, `ai_prompts.json`, `trading.db` e directory `logs/`.
+  - Nessun volume sovrascrive i pacchetti sorgente Python (`/app/*`).
 
-### 3. Google Gemini AI
-- **Fornitore:** Google AI Studio (Generative Language API)
-- **Discovery Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models`
-- **Modelli Supportati:** `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp` (selezionabili da Web UI)
-- **Formato Risposte:** JSON strutturato (`application/json`) con validazione schema Pydantic
-
-### 4. Interactive Brokers (IBKR)
-- **Host Gateway:** `192.168.1.212`
-- **Porta Gateway:** `4004`
-- **Client ID Tradest:** `500`
-
-### 5. Webhook Notifiche (tradeBotNotify)
-- **URL:** `http://192.168.1.212:9008/notify`
+## Credenziali e Servizi Esterni Memorizzati
+- **GitHub Account:** `ciacky85`
+- **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
+- **Repository Remoto:** `https://github.com/ciacky85/tradest.git`
+- **Interactive Brokers Gateway:** `192.168.1.212:4004` (Client ID 500)
+- **Webhook Notifiche:** `http://192.168.1.212:9008/notify`

@@ -1,13 +1,13 @@
 # ==============================================================================
 # Portainer Stack - Tradest AI Trading Bot
 # Porta Host esposta: 18881
-# Directory Host configurazioni: /srv/docker_conf/configs/tradest_conf
+# Cartella Host configurazione esterna: /srv/docker_conf/configs/tradest_conf
 # ==============================================================================
 version: '3.8'
 
 services:
   tradest:
-    image: ghcr.io/ciacky85/tradest:latest
+    image: tradest:latest
     build:
       context: https://github.com/ciacky85/tradest.git#main
       dockerfile: docker/Dockerfile
@@ -22,6 +22,7 @@ services:
       - APP_HOST=0.0.0.0
       - APP_PORT=8080
       - APP_LOG_LEVEL=INFO
+      - TRADEST_CONF_DIR=/tradest_conf
       - IBKR_HOST=192.168.1.212
       - IBKR_PORT=4004
       - IBKR_CLIENT_ID=500
@@ -35,10 +36,9 @@ services:
       - TIMEZONE=Europe/Rome
       - TZ=Europe/Rome
     volumes:
-      # Mappatura cartella esterna richiesta dall'utente
-      - /srv/docker_conf/configs/tradest_conf/config:/app/config:z
-      - /srv/docker_conf/configs/tradest_conf/data:/app/data:z
-      - /srv/docker_conf/configs/tradest_conf/logs:/app/logs:z
+      # Mappatura della cartella di configurazione esterna richiesta dall'utente
+      # Contiene: file JSON di configurazione, database SQLite (data/) e file di log (logs/)
+      - /srv/docker_conf/configs/tradest_conf:/tradest_conf:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

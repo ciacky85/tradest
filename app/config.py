@@ -1,13 +1,15 @@
 """
 app/config.py - Gestione centralizzata delle configurazioni.
 
-Carica variabili d'ambiente da .env e fornisce un oggetto Settings
-validato tramite Pydantic Settings per tutta l'applicazione.
+Carica variabili d'ambiente da .env e supporta una cartella di configurazione
+esterna persistente (TRADEST_CONF_DIR) con auto-provisioning dei file di default.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
 from pathlib import Path
 from typing import Literal
 
@@ -16,37 +18,76 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # ---------------------------------------------------------------------------
-# Percorso base del progetto (root workspace)
+# Percorsi di Base e Directory di Configurazione Esterna
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG_DIR = BASE_DIR / "config"
-DATA_DIR = BASE_DIR / "data"
-LOGS_DIR = BASE_DIR / "logs"
+
+# Se è specificata TRADEST_CONF_DIR nell'ambiente (es. per Portainer / Docker mount),
+# usiamo quella cartella esterna per configurazioni, DB SQLite e logs.
+# Altrimenti fallback locale sul workspace di sviluppo.
+_env_conf_dir = os.environ.get("TRADEST_CONF_DIR")
+
+if _env_conf_dir:
+    CONF_STORAGE_DIR = Path(_env_conf_dir)
+else:
+    CONF_STORAGE_DIR = BASE_DIR / "config"
+
+DEFAULT_TEMPLATES_DIR = BASE_DIR / "config"
+DATA_STORAGE_DIR = (
+    Path(_env_conf_dir) if _env_conf_dir else (BASE_DIR / "data")
+)
+LOGS_DIR = (
+    (Path(_env_conf_dir) / "logs") if _env_conf_dir else (BASE_DIR / "logs")
+)
+
+
+def ensure_conf_files_exist() -> None:
+    """
+    Assicura che la directory di configurazione esterna esista
+    e che i file template JSON siano copiati se non già presenti.
+    """
+    CONF_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    json_files = ["trading_params.json", "ai_prompts.json", "symbols.json"]
+    for jf in json_files:
+        dest = CONF_STORAGE_DIR / jf
+        src = DEFAULT_TEMPLATES_DIR / jf
+        if not dest.exists() and src.exists():
+            try:
+                shutil.copy2(src, dest)
+            except Exception:
+                pass
+
+
+# Inizializza i file al primo caricamento del modulo
+ensure_conf_files_exist()
 
 
 class Settings(BaseSettings):
-    """Configurazione globale dell'applicazione, caricata da .env."""
+    """Configurazione globale dell'applicazione, caricata da .env o env vars."""
 
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        env_file=str(CONF_STORAGE_DIR / ".env") if (CONF_STORAGE_DIR / ".env").exists() else str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
     # --- Applicazione ---
-    app_name: str = "AI-Trading-Bot"
+    app_name: str = "Tradest-AI-Bot"
     app_env: Literal["development", "staging", "production"] = "development"
-    app_debug: bool = True
+    app_debug: bool = False
     app_host: str = "0.0.0.0"
     app_port: int = 8080
-    app_log_level: str = "DEBUG"
+    app_log_level: str = "INFO"
 
     # --- Google Gemini AI ---
     gemini_api_key: str = ""
     gemini_model: str = "gemini-1.5-pro"
     gemini_max_tokens: int = 4096
-    gemini_temperature: float = 0.3
+    gemini_temperature: float = 0.2
 
     # --- Interactive Brokers ---
     ibkr_host: str = "192.168.1.212"
@@ -56,7 +97,7 @@ class Settings(BaseSettings):
     ibkr_timeout: int = 30
 
     # --- Database ---
-    database_url: str = f"sqlite:///{DATA_DIR / 'trading.db'}"
+    database_url: str = f"sqlite:///{DATA_STORAGE_DIR / 'trading.db'}"
     database_echo: bool = False
 
     # --- Notifiche ---
@@ -95,7 +136,6 @@ class Settings(BaseSettings):
             raise ValueError("ai_min_confidence deve essere tra 0.0 e 1.0")
         return v
 
-    # --- Proprietà derivate ---
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -106,7 +146,7 @@ class Settings(BaseSettings):
 
 
 # ---------------------------------------------------------------------------
-# Singleton settings - importabile ovunque
+# Singleton settings
 # ---------------------------------------------------------------------------
 _settings: Settings | None = None
 
@@ -120,7 +160,7 @@ def get_settings() -> Settings:
 
 
 def reload_settings() -> Settings:
-    """Forza il reload delle impostazioni (utile per test)."""
+    """Forza il reload delle impostazioni."""
     global _settings
     _settings = Settings()
     return _settings
@@ -129,22 +169,24 @@ def reload_settings() -> Settings:
 # ---------------------------------------------------------------------------
 # Caricamento file JSON di configurazione
 # ---------------------------------------------------------------------------
-def load_trading_params() -> dict:
-    """Carica i parametri di trading da config/trading_params.json."""
-    path = CONFIG_DIR / "trading_params.json"
-    with open(path, encoding="utf-8") as f:
+def _load_json_with_fallback(filename: str) -> dict:
+    dest = CONF_STORAGE_DIR / filename
+    src = DEFAULT_TEMPLATES_DIR / filename
+    target = dest if dest.exists() else src
+    with open(target, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_trading_params() -> dict:
+    """Carica i parametri di trading."""
+    return _load_json_with_fallback("trading_params.json")
 
 
 def load_ai_prompts() -> dict:
-    """Carica i template prompt AI da config/ai_prompts.json."""
-    path = CONFIG_DIR / "ai_prompts.json"
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    """Carica i template prompt AI."""
+    return _load_json_with_fallback("ai_prompts.json")
 
 
 def load_symbols_config() -> dict:
-    """Carica la configurazione dei simboli da config/symbols.json."""
-    path = CONFIG_DIR / "symbols.json"
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    """Carica la configurazione dei simboli."""
+    return _load_json_with_fallback("symbols.json")

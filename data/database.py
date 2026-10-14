@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 import aiosqlite
 
-from app.config import DATA_DIR, get_settings
+from app.config import DATA_STORAGE_DIR, get_settings
 from app.models import Position, TradeRecord
 from utils.logger import get_logger
 
@@ -111,8 +111,8 @@ class Database:
 
     def __init__(self, db_path: Path | str | None = None) -> None:
         if db_path is None:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            self.db_path = str(DATA_DIR / "trading.db")
+            DATA_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+            self.db_path = str(DATA_STORAGE_DIR / "trading.db")
         else:
             self.db_path = str(db_path)
         self._conn: Optional[aiosqlite.Connection] = None
