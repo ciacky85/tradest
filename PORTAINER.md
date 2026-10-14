@@ -10,7 +10,7 @@
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Porta Host Esposta:** `18881` (mappata su porta container `8080`)
 - **Cartella Configurazioni Esterne Host:** `/srv/docker_conf/configs/tradest_conf`
-- **IBKR Gateway:** `172.24.0.2:4004` (VNC: `5900`)
+- **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`)
 - **Fix Errore Registry Pull:** Nel compose è specificato `pull_policy: build`, dicendo a Docker di compilare direttamente dal sorgente Git senza richiedere autenticazioni a registri esterni.
 
 ---

@@ -54,7 +54,7 @@ class GeminiConfigRequest(BaseModel):
 
 
 class IBKRConfigRequest(BaseModel):
-    host: Optional[str] = "172.24.0.2"
+    host: Optional[str] = "192.168.1.212"
     port: Optional[int] = 4004
     client_id: Optional[int] = 500
     account_id: Optional[str] = None
