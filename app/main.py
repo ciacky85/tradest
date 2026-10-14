@@ -35,6 +35,7 @@ from app.config import (
 from app.models import HealthResponse, StatusResponse
 from data.database import Database, get_db
 from integration.gemini_client import GeminiClient, get_gemini_client
+from integration.ibkr_client import IBKRClient, get_ibkr_client
 from utils.logger import get_logger, setup_logging
 
 # Timestamp di avvio applicazione per il calcolo dell'uptime
@@ -50,6 +51,16 @@ class GeminiConfigRequest(BaseModel):
     api_key: Optional[str] = None
     model: Optional[str] = "gemini-1.5-pro"
     temperature: Optional[float] = 0.2
+
+
+class IBKRConfigRequest(BaseModel):
+    host: Optional[str] = "172.24.0.2"
+    port: Optional[int] = 4004
+    client_id: Optional[int] = 500
+    account_id: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    trading_mode: Optional[str] = "paper"  # 'paper' o 'live'
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +100,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             settings.gemini_model = saved_model
         if saved_temp is not None:
             settings.gemini_temperature = float(saved_temp)
+
+        # Ripristina configurazione IBKR salvata se presente
+        ib_client = get_ibkr_client()
+        saved_ib_user = await db.get_config("ibkr_username")
+        saved_ib_pw = await db.get_config("ibkr_password")
+        saved_ib_mode = await db.get_config("trading_mode")
+        saved_ib_host = await db.get_config("ibkr_host")
+        saved_ib_port = await db.get_config("ibkr_port")
+        saved_ib_acc = await db.get_config("ibkr_account_id")
+
+        ib_client.update_credentials(
+            username=saved_ib_user or settings.ibkr_username,
+            password=saved_ib_pw or settings.ibkr_password,
+            trading_mode=saved_ib_mode or settings.trading_mode,
+            host=saved_ib_host or settings.ibkr_host,
+            port=int(saved_ib_port) if saved_ib_port else settings.ibkr_port,
+            account_id=saved_ib_acc or settings.ibkr_account_id,
+        )
 
     except Exception as exc:
         logger.error("Errore inizializzazione database", error=str(exc))
@@ -355,14 +384,149 @@ async def get_status() -> StatusResponse:
         uptime_seconds=round(uptime, 2),
     )
 
+    ib_client = get_ibkr_client()
+    portfolio = await ib_client.get_portfolio()
+
     return StatusResponse(
         health=health,
-        portfolio=None,
-        ibkr_connected=False,
+        portfolio=portfolio,
+        ibkr_connected=ib_client.is_connected,
         ai_engine_ready=bool(client.api_key or cfg.gemini_api_key),
         last_analysis=None,
         next_analysis=None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Endpoint Interactive Brokers (IBKR)
+# ---------------------------------------------------------------------------
+@app.get(
+    "/portfolio",
+    summary="Dati correnti del portafoglio",
+    tags=["Trading"],
+)
+async def get_portfolio() -> dict[str, Any]:
+    """
+    Restituisce le informazioni aggiornate sul portafoglio da Interactive Brokers.
+    Include liquidità, cash, buying power, posizioni aperte e modalità (Paper/Live).
+    """
+    ib_client = get_ibkr_client()
+    p = await ib_client.get_portfolio()
+    return {
+        "connected": ib_client.is_connected,
+        "trading_mode": ib_client.trading_mode,
+        "portfolio": p.model_dump(),
+    }
+
+
+@app.get(
+    "/api/ibkr/config",
+    summary="Stato configurazione Interactive Brokers",
+    tags=["Interactive Brokers"],
+)
+async def get_ibkr_config() -> dict[str, Any]:
+    """Restituisce la configurazione attuale di IBKR Gateway e dell'utenza."""
+    ib_client = get_ibkr_client()
+    cfg = get_settings()
+    masked_pw = ("*" * len(ib_client.password)) if ib_client.password else ""
+    return {
+        "host": ib_client.host,
+        "port": ib_client.port,
+        "client_id": ib_client.client_id,
+        "account_id": ib_client.account_id,
+        "username": ib_client.username,
+        "has_password": bool(ib_client.password),
+        "masked_password": masked_pw,
+        "trading_mode": ib_client.trading_mode,
+        "connected": ib_client.is_connected,
+    }
+
+
+@app.post(
+    "/api/ibkr/config",
+    summary="Salva configurazione e credenziali Interactive Brokers",
+    tags=["Interactive Brokers"],
+)
+async def update_ibkr_config(req: IBKRConfigRequest) -> dict[str, Any]:
+    """Salva credenziali IBKR (username, password, paper/live mode, host, port) nel database persistente."""
+    ib_client = get_ibkr_client()
+    cfg = get_settings()
+    db = get_db()
+
+    if req.username is not None:
+        ib_client.username = req.username.strip()
+        cfg.ibkr_username = ib_client.username
+        await db.set_config("ibkr_username", ib_client.username)
+
+    if req.password is not None and req.password != "":
+        ib_client.password = req.password.strip()
+        cfg.ibkr_password = ib_client.password
+        await db.set_config("ibkr_password", ib_client.password)
+
+    if req.trading_mode is not None:
+        ib_client.trading_mode = req.trading_mode.strip()
+        cfg.trading_mode = ib_client.trading_mode
+        await db.set_config("trading_mode", ib_client.trading_mode)
+
+    if req.host is not None:
+        ib_client.host = req.host.strip()
+        cfg.ibkr_host = ib_client.host
+        await db.set_config("ibkr_host", ib_client.host)
+
+    if req.port is not None:
+        ib_client.port = req.port
+        cfg.ibkr_port = ib_client.port
+        await db.set_config("ibkr_port", str(ib_client.port))
+
+    if req.account_id is not None:
+        ib_client.account_id = req.account_id.strip()
+        cfg.ibkr_account_id = ib_client.account_id
+        await db.set_config("ibkr_account_id", ib_client.account_id)
+
+    logger.info(
+        "Configurazione IBKR salvata con successo",
+        username=ib_client.username,
+        trading_mode=ib_client.trading_mode,
+        host=ib_client.host,
+        port=ib_client.port,
+    )
+    return {
+        "status": "success",
+        "message": "Configurazione IBKR aggiornata con successo",
+        "trading_mode": ib_client.trading_mode,
+        "username": ib_client.username,
+    }
+
+
+@app.post(
+    "/api/ibkr/test",
+    summary="Test connessione a Interactive Brokers",
+    tags=["Interactive Brokers"],
+)
+async def test_ibkr_connection() -> dict[str, Any]:
+    """Testa la connessione al Gateway / TWS di Interactive Brokers."""
+    ib_client = get_ibkr_client()
+    is_ok = await ib_client.connect(timeout=5.0)
+    if is_ok:
+        portfolio = await ib_client.get_portfolio()
+        return {
+            "success": True,
+            "connected": True,
+            "message": f"Connessione a IBKR stabilita con successo ({ib_client.host}:{ib_client.port})",
+            "trading_mode": ib_client.trading_mode,
+            "account_id": portfolio.account_id,
+            "net_liquidation": portfolio.net_liquidation,
+            "total_cash": portfolio.total_cash,
+        }
+    else:
+        return {
+            "success": False,
+            "connected": False,
+            "message": f"Impossibile connettersi a IBKR Gateway ({ib_client.host}:{ib_client.port}). Verificare che il container Gateway/TWS sia avviato e in ascolto.",
+            "trading_mode": ib_client.trading_mode,
+            "host": ib_client.host,
+            "port": ib_client.port,
+        }
 
 
 # ---------------------------------------------------------------------------

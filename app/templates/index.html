@@ -155,6 +155,12 @@
             </div>
           </div>
 
+          <!-- Badge Connessione IBKR -->
+          <div id="ibkrStatusBadge" class="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-slate-800/50 text-slate-400 border border-slate-700">
+            <i class="fa-solid fa-chart-network"></i>
+            <span id="ibkrStatusText">IBKR: Non connesso</span>
+          </div>
+
           <div class="mt-4 space-y-3">
             <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
               <span class="text-slate-400">Asset Principale</span>
@@ -191,6 +197,108 @@
           <button onclick="emergencyStop()" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/25">
             <i class="fa-solid fa-triangle-exclamation"></i> Emergency Stop
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sezione: Configurazione Interactive Brokers -->
+    <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
+      <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+            <i class="fa-solid fa-building-columns text-lg"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-white">Interactive Brokers - Credenziali Account</h2>
+            <p class="text-xs text-slate-400">Configura username, password e modalità trading (Paper/Live) per accedere al portafoglio IBKR</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Username IBKR</label>
+          <input type="text" id="ibkrUsernameInput" placeholder="nautilususer"
+            class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Password IBKR</label>
+          <div class="relative">
+            <input type="password" id="ibkrPasswordInput" placeholder="••••••••"
+              class="input-field w-full px-4 py-2.5 pr-12 rounded-xl text-sm font-medium" />
+            <button type="button" onclick="toggleIBKRPasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition">
+              <i id="ibkrPwEyeIcon" class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Modalità Trading</label>
+          <select id="ibkrTradingModeSelect" class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium">
+            <option value="paper">📄 Paper Trading (Simulazione)</option>
+            <option value="live">💰 Live Trading (Reale)</option>
+          </select>
+          <span class="text-[11px] text-amber-400 mt-1 block"><i class="fa-solid fa-triangle-exclamation"></i> Con "nautilususer/D90c1df4t@!" accedi al portafoglio demo (Paper)</span>
+        </div>
+
+        <details class="text-xs">
+          <summary class="cursor-pointer text-slate-400 hover:text-slate-200 font-medium">⚙️ Avanzato: Host e Porta Gateway</summary>
+          <div class="mt-3 space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Host Gateway</label>
+              <input type="text" id="ibkrHostInput" value="172.24.0.2"
+                class="input-field w-full px-3 py-2 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Porta Gateway</label>
+              <input type="number" id="ibkrPortInput" value="4004"
+                class="input-field w-full px-3 py-2 rounded-lg text-xs" />
+            </div>
+          </div>
+        </details>
+
+        <div class="flex flex-wrap gap-3 pt-2">
+          <button onclick="saveIBKRConfig()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-600/25">
+            <i class="fa-solid fa-save"></i> Salva Configurazione IBKR
+          </button>
+
+          <button onclick="testIBKRConnection()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-emerald-600/25">
+            <i class="fa-solid fa-plug"></i> Test Connessione Gateway
+          </button>
+
+          <button onclick="loadPortfolioData()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-wallet"></i> Carica Portfolio
+          </button>
+        </div>
+
+        <div id="ibkrTestResultBox" class="hidden p-4 rounded-xl text-xs font-mono border"></div>
+
+        <div id="portfolioDataBox" class="hidden mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-wallet text-blue-400"></i> Dati Portafoglio IBKR
+          </h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div class="p-2 bg-slate-800 rounded-lg">
+              <span class="text-slate-400 block">Account ID</span>
+              <span id="portfolioAccountId" class="text-white font-mono font-semibold">-</span>
+            </div>
+            <div class="p-2 bg-slate-800 rounded-lg">
+              <span class="text-slate-400 block">Liquidità Netta</span>
+              <span id="portfolioNetLiq" class="text-emerald-400 font-mono font-semibold">$0.00</span>
+            </div>
+            <div class="p-2 bg-slate-800 rounded-lg">
+              <span class="text-slate-400 block">Cash Disponibile</span>
+              <span id="portfolioCash" class="text-sky-400 font-mono font-semibold">$0.00</span>
+            </div>
+            <div class="p-2 bg-slate-800 rounded-lg">
+              <span class="text-slate-400 block">Buying Power</span>
+              <span id="portfolioBuyingPower" class="text-amber-400 font-mono font-semibold">$0.00</span>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-slate-400" id="portfolioMode">
+            <i class="fa-solid fa-circle-info"></i> Modalità: <span id="portfolioTradingMode" class="font-semibold">-</span>
+          </div>
         </div>
       </div>
     </div>
@@ -437,6 +545,87 @@
         ? 'p-4 rounded-xl text-xs font-mono border bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
         : 'p-4 rounded-xl text-xs font-mono border bg-rose-500/10 border-rose-500/30 text-rose-300';
       box.innerText = text;
+    }
+
+    async function saveIBKRConfig() {
+      const username = document.getElementById('ibkrUsernameInput').value.trim();
+      const password = document.getElementById('ibkrPasswordInput').value.trim();
+      const tradingMode = document.getElementById('ibkrTradingModeSelect').value;
+      const host = document.getElementById('ibkrHostInput').value.trim();
+      const port = parseInt(document.getElementById('ibkrPortInput').value) || 4004;
+
+      try {
+        const res = await fetch('/api/ibkr/config', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            username: username,
+            password: password,
+            trading_mode: tradingMode,
+            host: host,
+            port: port
+          })
+        });
+        const data = await res.json();
+        showIBKRResultBox(true, `Configurazione IBKR salvata: ${data.username} (${data.trading_mode})`);
+        document.getElementById('ibkrStatusText').innerText = `IBKR: ${data.trading_mode}`;
+      } catch (e) {
+        showIBKRResultBox(false, `Errore salvataggio: ${e.message}`);
+      }
+    }
+
+    async function testIBKRConnection() {
+      showIBKRResultBox(null, 'Test connessione IBKR Gateway in corso...');
+      try {
+        const res = await fetch('/api/ibkr/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showIBKRResultBox(true, `✓ Connesso: ${data.message}. Account: ${data.account_id}, Liquidità: $${data.net_liquidation.toFixed(2)}`);
+          document.getElementById('ibkrStatusBadge').className = 'mt-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          document.getElementById('ibkrStatusText').innerText = `IBKR: Connesso (${data.trading_mode})`;
+        } else {
+          showIBKRResultBox(false, `✗ ${data.message}`);
+          document.getElementById('ibkrStatusBadge').className = 'mt-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30';
+          document.getElementById('ibkrStatusText').innerText = 'IBKR: Errore connessione';
+        }
+      } catch (e) {
+        showIBKRResultBox(false, `Errore: ${e.message}`);
+      }
+    }
+
+    async function loadPortfolioData() {
+      try {
+        const res = await fetch('/portfolio');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.portfolio) {
+            const p = data.portfolio;
+            document.getElementById('portfolioAccountId').innerText = p.account_id || '-';
+            document.getElementById('portfolioNetLiq').innerText = `$${p.net_liquidation.toFixed(2)}`;
+            document.getElementById('portfolioCash').innerText = `$${p.total_cash.toFixed(2)}`;
+            document.getElementById('portfolioBuyingPower').innerText = `$${p.buying_power.toFixed(2)}`;
+            document.getElementById('portfolioTradingMode').innerText = data.trading_mode.toUpperCase();
+            document.getElementById('portfolioDataBox').classList.remove('hidden');
+            showIBKRResultBox(true, 'Portfolio caricato con successo');
+          }
+        }
+      } catch (e) {
+        showIBKRResultBox(false, `Errore caricamento portfolio: ${e.message}`);
+      }
+    }
+
+    function showIBKRResultBox(success, message) {
+      const box = document.getElementById('ibkrTestResultBox');
+      box.classList.remove('hidden', 'bg-emerald-900/30', 'border-emerald-600', 'text-emerald-300', 'bg-red-900/30', 'border-red-600', 'text-red-300', 'bg-blue-900/30', 'border-blue-600', 'text-blue-300');
+      
+      if (success === true) {
+        box.classList.add('bg-emerald-900/30', 'border-emerald-600', 'text-emerald-300');
+      } else if (success === false) {
+        box.classList.add('bg-red-900/30', 'border-red-600', 'text-red-300');
+      } else {
+        box.classList.add('bg-blue-900/30', 'border-blue-600', 'text-blue-300');
+      }
+      box.innerText = message;
     }
 
     document.addEventListener('DOMContentLoaded', loadInitialStatus);

@@ -25,19 +25,24 @@ logger = get_logger("gemini_client")
 # Modelli standard di fallback se l'API non risponde all'endpoint di discovery
 DEFAULT_FALLBACK_MODELS = [
     {
+        "name": "models/gemini-1.5-flash",
+        "displayName": "Gemini 1.5 Flash (Basso consumo quota)",
+        "description": "Modello ultra-veloce ed efficiente, ideale per evitare quote limit",
+    },
+    {
         "name": "models/gemini-1.5-pro",
         "displayName": "Gemini 1.5 Pro",
         "description": "Modello ad alte prestazioni per ragionamento complesso e analisi tecnica",
     },
     {
-        "name": "models/gemini-1.5-flash",
-        "displayName": "Gemini 1.5 Flash",
-        "description": "Modello ultra-veloce per scalping e decisioni a bassa latenza",
+        "name": "models/gemini-2.0-flash",
+        "displayName": "Gemini 2.0 Flash",
+        "description": "Modello di nuova generazione veloce e ottimizzato",
     },
     {
-        "name": "models/gemini-2.0-flash-exp",
-        "displayName": "Gemini 2.0 Flash (Experimental)",
-        "description": "Modello di nuova generazione ad alta velocità",
+        "name": "models/gemini-2.5-flash",
+        "displayName": "Gemini 2.5 Flash",
+        "description": "Modello recente ad alta efficienza",
     },
 ]
 
@@ -143,6 +148,21 @@ class GeminiClient:
                         "reply": reply,
                         "status_code": 200,
                     }
+                elif resp.status_code == 429:
+                    error_msg = (
+                        f"Quota API superata (429) per il modello '{active_model}'. "
+                        "Questo accade tipicamente sul free-tier di Google AI Studio (limite RPM/RPD) "
+                        "oppure se il modello scelto ha esaurito la quota disponibile. "
+                        "Prova a selezionare 'gemini-1.5-flash' o attendere qualche minuto."
+                    )
+                    logger.warning("Gemini API quota exceeded 429", model=active_model)
+                    return {
+                        "success": False,
+                        "model": active_model,
+                        "error": error_msg,
+                        "status_code": 429,
+                        "raw_detail": resp.text,
+                    }
                 else:
                     return {
                         "success": False,
@@ -185,7 +205,13 @@ class GeminiClient:
 
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
+            if resp.status_code == 429:
+                logger.error("Errore 429 Quota Exceeded durante simulazione", model=active_model)
+                raise RuntimeError(
+                    f"Errore 429 Quota Exceeded: Il modello '{active_model}' ha raggiunto il limite di richieste/quota dell'API key. "
+                    "Seleziona un modello con rate limit più elevato (es. 'gemini-1.5-flash') o attendi il reset."
+                )
+            elif resp.status_code != 200:
                 logger.error("Errore risposta Gemini API", status=resp.status_code, text=resp.text)
                 raise RuntimeError(f"Errore Gemini API ({resp.status_code}): {resp.text}")
 

@@ -6,7 +6,7 @@
 |------|-------------|-------|------|
 | **Fase 0** | Planning e Architettura | ✅ Completata | Piano di progetto e todo list definiti |
 | **Fase 1** | Setup Base e Infrastruttura | ✅ Completata | Directory, config, FastAPI, models, SQLite, tests |
-| **Fase 2** | Connessione IBKR e Portfolio Manager | 🔲 Non avviata | Client ID 500, host 192.168.1.212:4004 |
+| **Fase 2** | Connessione IBKR e Portfolio Manager | ✅ Completata | Client ID 500, host 172.24.0.2:4004, credenziali salvabili, portfolio estratto |
 | **Fase 3** | Integrazione Google Gemini Pro | 🔲 Non avviata | SDK Gemini 1.5 Pro, prompt structured |
 | **Fase 4** | Market Analyzer e Dati Real-time | 🔲 Non avviata | Snapshot XAUUSD, indicatori tecnici, cache |
 | **Fase 5** | Risk Manager e Validazioni | 🔲 Non avviata | Limiti $5000 trade, $500 loss, emergency stop |

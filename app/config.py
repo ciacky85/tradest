@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     ibkr_port: int = 4004
     ibkr_client_id: int = 500
     ibkr_account_id: str = ""
+    ibkr_username: str = "nautilususer"
+    ibkr_password: str = "D90c1df4t@!"
     ibkr_timeout: int = 30
 
     # --- Database ---
