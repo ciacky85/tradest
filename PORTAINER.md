@@ -1,8 +1,12 @@
 # Guida Deploy Stack Portainer - Tradest AI Trading Bot
 
+**Versione:** 1.0.1  
+**Data:** 2026-10-14  
+
 ## 🚀 Panoramica dello Stack
 
 - **Applicazione:** Tradest (Software di Trading Automatico Indipendente basato su Google Gemini AI)
+- **Versione Corrente:** `1.0.1`
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Porta Host Esposta:** `18881` (mappata su porta container `8080`)
 - **Cartella Configurazioni Esterne Host:** `/srv/docker_conf/configs/tradest_conf`
