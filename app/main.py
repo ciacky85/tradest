@@ -49,7 +49,7 @@ logger = get_logger("app.main")
 # ---------------------------------------------------------------------------
 class GeminiConfigRequest(BaseModel):
     api_key: Optional[str] = None
-    model: Optional[str] = "gemini-1.5-pro"
+    model: Optional[str] = "gemini-2.5-flash"
     temperature: Optional[float] = 0.2
 
 

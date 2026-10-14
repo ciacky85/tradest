@@ -85,7 +85,7 @@ class Settings(BaseSettings):
 
     # --- Google Gemini AI ---
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-1.5-pro"
+    gemini_model: str = "gemini-2.5-flash"
     gemini_max_tokens: int = 4096
     gemini_temperature: float = 0.2
 
@@ -94,8 +94,8 @@ class Settings(BaseSettings):
     ibkr_port: int = 4004
     ibkr_client_id: int = 500
     ibkr_account_id: str = ""
-    ibkr_username: str = "lhungq693"
-    ibkr_password: str = "secretpaper"
+    ibkr_username: str = "nautilususer"
+    ibkr_password: str = "D90c1df4t@!"
     ibkr_timeout: int = 30
 
     # --- Database ---

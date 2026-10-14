@@ -25,24 +25,24 @@ logger = get_logger("gemini_client")
 # Modelli standard di fallback se l'API non risponde all'endpoint di discovery
 DEFAULT_FALLBACK_MODELS = [
     {
-        "name": "models/gemini-1.5-flash",
-        "displayName": "Gemini 1.5 Flash (Basso consumo quota)",
-        "description": "Modello ultra-veloce ed efficiente, ideale per evitare quote limit",
-    },
-    {
-        "name": "models/gemini-1.5-pro",
-        "displayName": "Gemini 1.5 Pro",
-        "description": "Modello ad alte prestazioni per ragionamento complesso e analisi tecnica",
+        "name": "models/gemini-2.5-flash",
+        "displayName": "Gemini 2.5 Flash (Consigliato - Nuova Quota)",
+        "description": "Modello di ultimissima generazione, altamente efficiente con quote separate",
     },
     {
         "name": "models/gemini-2.0-flash",
         "displayName": "Gemini 2.0 Flash",
-        "description": "Modello di nuova generazione veloce e ottimizzato",
+        "description": "Modello ad alte prestazioni e bassa latenza",
     },
     {
-        "name": "models/gemini-2.5-flash",
-        "displayName": "Gemini 2.5 Flash",
-        "description": "Modello recente ad alta efficienza",
+        "name": "models/gemini-1.5-flash",
+        "displayName": "Gemini 1.5 Flash",
+        "description": "Modello ultra-veloce ed efficiente per scalping",
+    },
+    {
+        "name": "models/gemini-1.5-pro",
+        "displayName": "Gemini 1.5 Pro",
+        "description": "Modello per ragionamento complesso (può richiedere tier a pagamento per rate limit elevati)",
     },
 ]
 
