@@ -407,16 +407,11 @@ async def get_status() -> StatusResponse:
 )
 async def get_portfolio() -> dict[str, Any]:
     """
-    Restituisce le informazioni aggiornate sul portafoglio da Interactive Brokers.
-    Include liquidità, cash, buying power, posizioni aperte e modalità (Paper/Live).
+    Restituisce le informazioni complete e aggiornate sul portafoglio da Interactive Brokers:
+    liquidità, cash, buying power, posizioni aperte con P&L, ordini ed esecuzioni.
     """
     ib_client = get_ibkr_client()
-    p = await ib_client.get_portfolio()
-    return {
-        "connected": ib_client.is_connected,
-        "trading_mode": ib_client.trading_mode,
-        "portfolio": p.model_dump(),
-    }
+    return await ib_client.get_all_account_data()
 
 
 @app.get(

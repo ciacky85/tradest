@@ -60,6 +60,9 @@ class GeminiClient:
     def _normalize_model_name(self) -> None:
         if self.model and self.model.startswith("models/"):
             self.model = self.model.replace("models/", "")
+        # Se l'utente seleziona "3.8" o varianti, rimappa su un modello valido per l'API Google Gemini
+        if self.model in ("3.8", "gemini-3.8", "3.8-pro", "gemini-3.8-pro", "sonnet-3.8"):
+            self.model = "gemini-2.5-flash"
 
     def set_api_key(self, api_key: str) -> None:
         """Aggiorna l'API key."""
@@ -114,7 +117,8 @@ class GeminiClient:
             }
 
         self._normalize_model_name()
-        active_model = self.model or "gemini-1.5-pro"
+        active_model = self.model or "gemini-2.5-flash"
+        # Endpoint v1beta ufficiale
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={self.api_key}"
 
         payload = {
@@ -149,19 +153,26 @@ class GeminiClient:
                         "status_code": 200,
                     }
                 elif resp.status_code == 429:
+                    logger.warning("Gemini API 429", model=active_model, body=resp.text)
+                    # Parsa il messaggio dettagliato di Google per aiutare l'utente
+                    try:
+                        err_json = resp.json()
+                        google_msg = err_json.get("error", {}).get("message", resp.text)
+                    except Exception:
+                        google_msg = resp.text
+
                     error_msg = (
-                        f"Quota API superata (429) per il modello '{active_model}'. "
-                        "Questo accade tipicamente sul free-tier di Google AI Studio (limite RPM/RPD) "
-                        "oppure se il modello scelto ha esaurito la quota disponibile. "
-                        "Prova a selezionare 'gemini-1.5-flash' o attendere qualche minuto."
+                        f"Errore 429 da Google Gemini per '{active_model}': {google_msg}. "
+                        "Nota: l'API key usata nell'interfaccia ha un rate limit o un piano Google AI Studio separato "
+                        "rispetto all'estensione/IDE di sviluppo. "
+                        "Prova a selezionare 'gemini-2.5-flash' oppure clicca su 'Aggiorna Modelli da Google'."
                     )
-                    logger.warning("Gemini API quota exceeded 429", model=active_model)
                     return {
                         "success": False,
                         "model": active_model,
                         "error": error_msg,
                         "status_code": 429,
-                        "raw_detail": resp.text,
+                        "raw_detail": google_msg,
                     }
                 else:
                     return {

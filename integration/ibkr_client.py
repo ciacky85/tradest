@@ -181,21 +181,47 @@ class IBKRClient:
                 unrealized_pnl = summary_map.get("UnrealizedPnL", 0.0)
                 realized_pnl = summary_map.get("RealizedPnL", 0.0)
 
-                # Posizioni correnti
-                ib_positions = self._ib.positions(self.account_id)
+                # Estrae le posizioni con prezzi correnti e P&L da ib.portfolio()
+                portfolio_items = self._ib.portfolio(self.account_id)
                 positions_list: list[Position] = []
                 from app.models import TradingDirection
-                for p in ib_positions:
-                    direction = TradingDirection.LONG if p.position >= 0 else TradingDirection.SHORT
-                    pos_obj = Position(
-                        symbol=p.contract.symbol,
-                        direction=direction,
-                        quantity=abs(float(p.position)),
-                        entry_price=float(p.avgCost),
-                        current_price=float(p.avgCost),
-                        unrealized_pnl=0.0,
-                    )
-                    positions_list.append(pos_obj)
+
+                if portfolio_items:
+                    for item in portfolio_items:
+                        direction = TradingDirection.LONG if item.position >= 0 else TradingDirection.SHORT
+                        pos_obj = Position(
+                            symbol=item.contract.symbol,
+                            direction=direction,
+                            quantity=abs(float(item.position)),
+                            entry_price=float(item.averageCost),
+                            current_price=float(item.marketPrice),
+                            market_value=float(item.marketValue),
+                            unrealized_pnl=float(item.unrealizedPNL),
+                            realized_pnl=float(item.realizedPNL),
+                            sec_type=item.contract.secType or "STK",
+                            currency=item.contract.currency or "USD",
+                            exchange=item.contract.primaryExchange or item.contract.exchange or "",
+                        )
+                        positions_list.append(pos_obj)
+                else:
+                    # Fallback su ib.positions()
+                    ib_positions = self._ib.positions(self.account_id)
+                    for p in ib_positions:
+                        direction = TradingDirection.LONG if p.position >= 0 else TradingDirection.SHORT
+                        pos_obj = Position(
+                            symbol=p.contract.symbol,
+                            direction=direction,
+                            quantity=abs(float(p.position)),
+                            entry_price=float(p.avgCost),
+                            current_price=float(p.avgCost),
+                            market_value=float(p.position * p.avgCost),
+                            unrealized_pnl=0.0,
+                            realized_pnl=0.0,
+                            sec_type=p.contract.secType or "STK",
+                            currency=p.contract.currency or "USD",
+                            exchange=p.contract.primaryExchange or p.contract.exchange or "",
+                        )
+                        positions_list.append(pos_obj)
 
                 from app.models import AccountSummary
                 acc_summary = AccountSummary(
@@ -248,27 +274,64 @@ class IBKRClient:
     async def get_trades(self) -> list[TradeRecord]:
         """Recupera i trade e le esecuzioni recenti."""
         if self._ib is not None and self._ib.isConnected():
+            from app.models import TradeAction
             try:
-                executions = self._ib.executions()
+                fills = self._ib.fills()
                 trades: list[TradeRecord] = []
-                for fill in executions:
+                for f in fills:
+                    side_str = (f.execution.side or "BUY").upper()
+                    act = TradeAction.BUY if side_str.startswith("B") else TradeAction.SELL
                     trades.append(
                         TradeRecord(
-                            id=str(fill.execId),
-                            order_id=str(fill.orderId),
-                            symbol=fill.contract.symbol,
-                            action=fill.side,
-                            quantity=float(fill.shares),
-                            price=float(fill.price),
-                            commission=0.0,
-                            realized_pnl=0.0,
+                            id=str(f.execution.execId),
+                            order_id=str(f.execution.orderId),
+                            symbol=f.contract.symbol,
+                            action=act,
+                            quantity=float(f.execution.shares),
+                            price=float(f.execution.price),
+                            commission=float(f.commissionReport.commission if f.commissionReport else 0.0),
+                            realized_pnl=float(f.commissionReport.realizedPNL if f.commissionReport else 0.0),
                             executed_at=datetime.utcnow(),
                         )
                     )
                 return trades
             except Exception as e:
-                logger.error("Errore recupero trades da IBKR", error=str(e))
+                logger.error("Errore recupero fills da IBKR", error=str(e))
         return []
+
+    async def get_all_account_data(self) -> dict[str, Any]:
+        """Restituisce tutti i dettagli aggregati di conto, portfolio, posizioni, ordini e trade."""
+        portfolio = await self.get_portfolio()
+        trades = await self.get_trades()
+        orders = []
+        if self._ib is not None and self._ib.isConnected():
+            try:
+                for o in self._ib.openOrders():
+                    orders.append({
+                        "order_id": str(o.orderId),
+                        "action": o.action,
+                        "total_quantity": float(o.totalQuantity),
+                        "order_type": o.orderType,
+                        "lmt_price": float(o.lmtPrice) if o.lmtPrice else None,
+                        "aux_price": float(o.auxPrice) if o.auxPrice else None,
+                    })
+            except Exception as e:
+                logger.error("Errore recupero ordini da IBKR", error=str(e))
+
+        return {
+            "account_id": portfolio.account.account_id,
+            "connected": self.is_connected,
+            "trading_mode": self.trading_mode,
+            "total_value": portfolio.account.total_value,
+            "cash_balance": portfolio.account.cash_balance,
+            "buying_power": portfolio.account.buying_power,
+            "unrealized_pnl": portfolio.account.unrealized_pnl,
+            "realized_pnl_today": portfolio.account.realized_pnl_today,
+            "margin_used": portfolio.account.margin_used,
+            "positions": [p.model_dump() for p in portfolio.positions],
+            "open_orders": orders,
+            "executions": [t.model_dump() for t in trades],
+        }
 
 
 # Istanza singleton

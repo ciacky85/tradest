@@ -126,13 +126,18 @@ class MarketContext(BaseModel):
 # ===== Modelli Posizioni e Ordini =====
 
 class Position(BaseModel):
-    """Posizione aperta nel portfolio."""
+    """Posizione aperta nel portfolio con tutti i dettagli IBKR."""
     symbol: str
     direction: TradingDirection
     quantity: float
     entry_price: float
     current_price: float = 0.0
+    market_value: float = 0.0
     unrealized_pnl: float = 0.0
+    realized_pnl: float = 0.0
+    sec_type: str = "STK"
+    currency: str = "USD"
+    exchange: str = ""
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
     opened_at: datetime = Field(default_factory=datetime.utcnow)

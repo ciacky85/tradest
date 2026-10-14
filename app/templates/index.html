@@ -275,30 +275,96 @@
 
         <div id="ibkrTestResultBox" class="hidden p-4 rounded-xl text-xs font-mono border"></div>
 
-        <div id="portfolioDataBox" class="hidden mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-wallet text-blue-400"></i> Dati Portafoglio IBKR
-          </h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div class="p-2 bg-slate-800 rounded-lg">
-              <span class="text-slate-400 block">Account ID</span>
-              <span id="portfolioAccountId" class="text-white font-mono font-semibold">-</span>
+        <div id="portfolioDataBox" class="hidden mt-4 p-5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-wallet text-blue-400"></i> Dati Portafoglio & Saldi IBKR
+            </h3>
+            <span class="text-xs text-slate-400">Modalità: <span id="portfolioTradingMode" class="font-bold text-sky-400">PAPER</span></span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">Account ID</span>
+              <span id="portfolioAccountId" class="text-white font-mono font-bold text-sm">-</span>
             </div>
-            <div class="p-2 bg-slate-800 rounded-lg">
-              <span class="text-slate-400 block">Liquidità Netta</span>
-              <span id="portfolioNetLiq" class="text-emerald-400 font-mono font-semibold">$0.00</span>
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">Valore Totale</span>
+              <span id="portfolioNetLiq" class="text-emerald-400 font-mono font-bold text-sm">€0.00</span>
             </div>
-            <div class="p-2 bg-slate-800 rounded-lg">
-              <span class="text-slate-400 block">Cash Disponibile</span>
-              <span id="portfolioCash" class="text-sky-400 font-mono font-semibold">$0.00</span>
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">Cash Disponibile</span>
+              <span id="portfolioCash" class="text-sky-400 font-mono font-bold text-sm">€0.00</span>
             </div>
-            <div class="p-2 bg-slate-800 rounded-lg">
-              <span class="text-slate-400 block">Buying Power</span>
-              <span id="portfolioBuyingPower" class="text-amber-400 font-mono font-semibold">$0.00</span>
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">Buying Power</span>
+              <span id="portfolioBuyingPower" class="text-amber-400 font-mono font-bold text-sm">€0.00</span>
+            </div>
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">P&L Non Realizzato</span>
+              <span id="portfolioUnrealizedPnL" class="font-mono font-bold text-sm">€0.00</span>
+            </div>
+            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
+              <span class="text-slate-400 block text-[11px]">Margine Utilizzato</span>
+              <span id="portfolioMarginUsed" class="text-slate-300 font-mono font-bold text-sm">€0.00</span>
             </div>
           </div>
-          <div class="mt-3 text-xs text-slate-400" id="portfolioMode">
-            <i class="fa-solid fa-circle-info"></i> Modalità: <span id="portfolioTradingMode" class="font-semibold">-</span>
+
+          <!-- Tabella Posizioni Dettagliate -->
+          <div class="mt-4 pt-3 border-t border-slate-800">
+            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span><i class="fa-solid fa-layer-group text-sky-400 mr-1.5"></i> Posizioni nel Portafoglio</span>
+              <span id="positionsCountBadge" class="text-[11px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20 font-mono">0 posizioni</span>
+            </h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 font-semibold">
+                  <tr>
+                    <th class="py-2.5 px-3">Strumento</th>
+                    <th class="py-2.5 px-3">Tipo / Borsa</th>
+                    <th class="py-2.5 px-3">Direzione</th>
+                    <th class="py-2.5 px-3 text-right">Quantità</th>
+                    <th class="py-2.5 px-3 text-right">Prezzo Carico</th>
+                    <th class="py-2.5 px-3 text-right">Prezzo Mercato</th>
+                    <th class="py-2.5 px-3 text-right">Valore Mercato</th>
+                    <th class="py-2.5 px-3 text-right">P&L Non Realizzato</th>
+                  </tr>
+                </thead>
+                <tbody id="positionsTableBody" class="divide-y divide-slate-800 font-mono">
+                  <tr>
+                    <td colspan="8" class="text-center py-4 text-slate-500 font-sans">Nessuna posizione aperta o premi "Carica Portfolio"</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tabella Esecuzioni / Transazioni -->
+          <div class="mt-4 pt-3 border-t border-slate-800">
+            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span><i class="fa-solid fa-receipt text-indigo-400 mr-1.5"></i> Transazioni & Ordini Eseguiti</span>
+              <span id="executionsCountBadge" class="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20 font-mono">0 transazioni</span>
+            </h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 font-semibold">
+                  <tr>
+                    <th class="py-2.5 px-3">ID Transazione</th>
+                    <th class="py-2.5 px-3">Strumento</th>
+                    <th class="py-2.5 px-3">Operazione</th>
+                    <th class="py-2.5 px-3 text-right">Quantità</th>
+                    <th class="py-2.5 px-3 text-right">Prezzo Eseguito</th>
+                    <th class="py-2.5 px-3 text-right">Commissione</th>
+                    <th class="py-2.5 px-3 text-right">P&L Realizzato</th>
+                  </tr>
+                </thead>
+                <tbody id="executionsTableBody" class="divide-y divide-slate-800 font-mono">
+                  <tr>
+                    <td colspan="7" class="text-center py-4 text-slate-500 font-sans">Nessuna transazione recente registrata</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -599,17 +665,80 @@
         const res = await fetch('/portfolio');
         if (res.ok) {
           const data = await res.json();
-          if (data.portfolio) {
-            const p = data.portfolio;
-            const acc = p.account || {};
-            document.getElementById('portfolioAccountId').innerText = acc.account_id || '-';
-            document.getElementById('portfolioNetLiq').innerText = `€${(acc.total_value || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('portfolioCash').innerText = `€${(acc.cash_balance || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('portfolioBuyingPower').innerText = `€${(acc.buying_power || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('portfolioTradingMode').innerText = (data.trading_mode || 'PAPER').toUpperCase();
-            document.getElementById('portfolioDataBox').classList.remove('hidden');
-            showIBKRResultBox(true, `Portfolio caricato con successo. Trovate ${p.positions ? p.positions.length : 0} posizioni attive.`);
+          // Supporta sia formato aggregato che vecchio
+          const totalVal = data.total_value !== undefined ? data.total_value : (data.portfolio?.account?.total_value || 0);
+          const cashBal = data.cash_balance !== undefined ? data.cash_balance : (data.portfolio?.account?.cash_balance || 0);
+          const buyPow = data.buying_power !== undefined ? data.buying_power : (data.portfolio?.account?.buying_power || 0);
+          const unPnL = data.unrealized_pnl !== undefined ? data.unrealized_pnl : (data.portfolio?.account?.unrealized_pnl || 0);
+          const margin = data.margin_used !== undefined ? data.margin_used : (data.portfolio?.account?.margin_used || 0);
+          const accId = data.account_id || data.portfolio?.account?.account_id || '-';
+          const positions = data.positions || data.portfolio?.positions || [];
+          const executions = data.executions || [];
+
+          document.getElementById('portfolioAccountId').innerText = accId;
+          document.getElementById('portfolioNetLiq').innerText = `€${totalVal.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          document.getElementById('portfolioCash').innerText = `€${cashBal.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          document.getElementById('portfolioBuyingPower').innerText = `€${buyPow.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          
+          const pnlEl = document.getElementById('portfolioUnrealizedPnL');
+          pnlEl.innerText = `€${unPnL.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          pnlEl.className = unPnL >= 0 ? 'text-emerald-400 font-mono font-bold text-sm' : 'text-rose-400 font-mono font-bold text-sm';
+
+          document.getElementById('portfolioMarginUsed').innerText = `€${margin.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          document.getElementById('portfolioTradingMode').innerText = (data.trading_mode || 'PAPER').toUpperCase();
+          document.getElementById('positionsCountBadge').innerText = `${positions.length} posizioni`;
+
+          // Popola tabella posizioni
+          const posTbody = document.getElementById('positionsTableBody');
+          if (positions.length > 0) {
+            posTbody.innerHTML = positions.map(p => {
+              const pnlClass = (p.unrealized_pnl >= 0) ? 'text-emerald-400' : 'text-rose-400';
+              const dirBadge = (p.direction === 'LONG' || p.direction === 'BUY')
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">LONG</span>'
+                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold">SHORT</span>';
+              return `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="py-2.5 px-3 font-bold text-white">${p.symbol}</td>
+                  <td class="py-2.5 px-3 text-slate-400">${p.sec_type || 'STK'} ${p.exchange ? '('+p.exchange+')' : ''}</td>
+                  <td class="py-2.5 px-3">${dirBadge}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-200">${p.quantity}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-300">€${(p.entry_price || 0).toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-right text-white font-semibold">€${(p.current_price || 0).toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-200">€${(p.market_value || 0).toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-right font-bold ${pnlClass}">€${(p.unrealized_pnl || 0).toFixed(2)}</td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            posTbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-500 font-sans">Nessuna posizione aperta</td></tr>';
           }
+
+          // Popola tabella esecuzioni
+          const execTbody = document.getElementById('executionsTableBody');
+          document.getElementById('executionsCountBadge').innerText = `${executions.length} transazioni`;
+          if (executions.length > 0) {
+            execTbody.innerHTML = executions.map(t => {
+              const actBadge = (t.action === 'BUY')
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">ACQUISTO</span>'
+                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold">VENDITA</span>';
+              return `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="py-2.5 px-3 text-slate-400 font-mono text-[11px]">${t.id || '-'}</td>
+                  <td class="py-2.5 px-3 font-bold text-white">${t.symbol}</td>
+                  <td class="py-2.5 px-3">${actBadge}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-200">${t.quantity}</td>
+                  <td class="py-2.5 px-3 text-right text-white font-semibold">€${(t.price || 0).toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-400">€${(t.commission || 0).toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-right font-bold ${(t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}">€${(t.realized_pnl || 0).toFixed(2)}</td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            execTbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-500 font-sans">Nessuna transazione recente registrata da IBKR</td></tr>';
+          }
+
+          document.getElementById('portfolioDataBox').classList.remove('hidden');
+          showIBKRResultBox(true, `Portfolio caricato con successo da IBKR (${accId}): ${positions.length} posizioni trovate.`);
         }
       } catch (e) {
         showIBKRResultBox(false, `Errore caricamento portfolio: ${e.message}`);
