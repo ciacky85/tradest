@@ -1,6 +1,6 @@
 # Tradest - AI Trading Bot
 
-**Versione:** 1.0.2  
+**Versione:** 1.0.3  
 **Progetto:** Trading automatico basato su intelligenza artificiale (Google Gemini)  
 **Data aggiornamento:** 2026-10-14  
 **Workspace:** `/home/vvelectron/VisualVibe Workdirs/tradest`  
@@ -14,13 +14,13 @@ Tradest è un'applicazione **completamente indipendente ed autonoma** che impieg
 
 ### Caratteristiche Principali
 
-- ✅ **Versione:** 1.0.2
+- ✅ **Versione:** 1.0.3
 - ✅ **100% Autonomo:** Nessun collegamento né dipendenza con software esterni; architettura leggera e modulare
 - ✅ **Interactive Brokers Gateway:** Collegato a `172.24.0.2:4004` (Client ID 500)
 - ✅ **AI Live Dynamic Decisions:** Analisi continua e scelte operative demandate a Google Gemini
 - ✅ **Selezione Dinamica Modello:** Modello Gemini selezionabile da Web UI (`gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp`)
 - ✅ **Dashboard Web:** Interfaccia grafica intuitiva per monitoraggio, test live e configurazione API Google
-- ✅ **Stack Portainer Ready:** Esposizione su porta `18881` con configurazione unificata su `/srv/docker_conf/configs/tradest_conf`
+- ✅ **Stack Portainer Ready:** Esposizione su porta `18881` con configurazione unificata su `/srv/docker_conf/configs/tradest_conf` e `pull_policy: build` per evitare errori di registry pull
 - ✅ **Gestione Rischi:** Budget massimo per trade ($5,000), Stop-Loss 0.5%, Take-Profit 1.0%, Daily Loss limit ($500), Emergency Stop
 
 ---

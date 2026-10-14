@@ -1,5 +1,6 @@
 # ==============================================================================
 # Portainer Stack - Tradest AI Trading Bot
+# Versione: 1.0.3
 # Porta Host esposta: 18881
 # Cartella Host configurazione esterna: /srv/docker_conf/configs/tradest_conf
 # ==============================================================================
@@ -7,9 +8,12 @@ version: '3.8'
 
 services:
   tradest:
+    # Modalità 1: Build locale/remoto da GitHub context (previene qualsiasi errore di registry pull)
     build:
       context: https://github.com/ciacky85/tradest.git#main
       dockerfile: docker/Dockerfile
+    image: tradest:1.0.3
+    pull_policy: build
     container_name: tradest
     restart: unless-stopped
     ports:

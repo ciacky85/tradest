@@ -1,17 +1,17 @@
 # Guida Deploy Stack Portainer - Tradest AI Trading Bot
 
-**Versione:** 1.0.2  
+**Versione:** 1.0.3  
 **Data:** 2026-10-14  
 
 ## 🚀 Panoramica dello Stack
 
 - **Applicazione:** Tradest (Software di Trading Automatico Indipendente basato su Google Gemini AI)
-- **Versione Corrente:** `1.0.2`
+- **Versione Corrente:** `1.0.3`
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Porta Host Esposta:** `18881` (mappata su porta container `8080`)
 - **Cartella Configurazioni Esterne Host:** `/srv/docker_conf/configs/tradest_conf`
 - **IBKR Gateway:** `172.24.0.2:4004` (VNC: `5900`)
-- **Architettura:** Applicazione autonoma, leggera e indipendente; decisioni di trade short/long prese direttamente in tempo reale da Google Gemini (modello selezionabile via UI tra `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp`) sulla base dello storico e delle condizioni live del mercato.
+- **Fix Errore Registry Pull:** Nel compose è specificato `pull_policy: build`, dicendo a Docker di compilare direttamente dal sorgente Git senza richiedere autenticazioni a registri esterni.
 
 ---
 
@@ -24,20 +24,22 @@ mkdir -p /srv/docker_conf/configs/tradest_conf
 chmod -R 775 /srv/docker_conf/configs/tradest_conf
 ```
 
-> **Nota:** Al primo avvio, il container popola automaticamente la cartella `/srv/docker_conf/configs/tradest_conf` con i file di configurazione iniziali (`trading_params.json`, `ai_prompts.json`, `symbols.json`) e crea il database SQLite persistente `trading.db` e la cartella `logs/`.
-
 ---
 
 ## 🛠️ Configurazione Stack Portainer (Web UI)
 
 1. Accedere al pannello **Portainer**
-2. Selezionare l'ambiente Docker locale e andare su **Stacks** → **Add Stack**
+2. Selezionare l'ambiente Docker locale e andare su **Stacks** → **Add Stack** (o aggiornare lo stack esistente)
 3. Nome Stack: `tradest`
 4. Selezionare **Repository**:
    - **Repository URL:** `https://github.com/ciacky85/tradest.git`
    - **Repository reference:** `refs/heads/main`
    - **Compose path:** `docker/docker-compose.portainer.yml`
-5. Oppure selezionare **Web editor** e incollare il compose seguente:
+5. **Opzioni di Deploy in Portainer:**
+   - **Disattivare** il toggle *"Re-pull image"* (poiché l'immagine viene compilata via build da Git e non pullata da un registry remoto)
+   - Cliccare su **Deploy the stack** (o **Update the stack**)
+
+6. In alternativa, tramite **Web editor**, incollare il seguente YAML:
 
 ```yaml
 version: '3.8'
@@ -47,6 +49,8 @@ services:
     build:
       context: https://github.com/ciacky85/tradest.git#main
       dockerfile: docker/Dockerfile
+    image: tradest:1.0.3
+    pull_policy: build
     container_name: tradest
     restart: unless-stopped
     ports:
@@ -72,7 +76,6 @@ services:
       - TIMEZONE=Europe/Rome
       - TZ=Europe/Rome
     volumes:
-      # Cartella host persistente per configurazioni, DB SQLite e log
       - /srv/docker_conf/configs/tradest_conf:/tradest_conf:z
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -87,13 +90,3 @@ networks:
   tradest-network:
     driver: bridge
 ```
-
-6. Cliccare su **Deploy the stack**.
-
----
-
-## 🌐 Dashboard Web & Selezione Modello Gemini
-
-Una volta avviato lo stack, collegarsi con il browser a:
-- **Dashboard Web:** `http://<IP-DEL-TUO-SERVER>:18881/`
-- **Swagger API Docs:** `http://<IP-DEL-TUO-SERVER>:18881/docs`

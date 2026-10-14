@@ -3,12 +3,12 @@
 ## Stack Tecnologico e Indipendenza
 
 Tradest è un'applicazione Python 3.12 moderna e indipendente:
-- **Versione:** 1.0.2
+- **Versione:** 1.0.3
 - **Framework Web & API:** FastAPI + Uvicorn
 - **AI Engine:** Google Gemini (Generative Language API v1beta / `google-generativeai`)
 - **Database:** SQLite asincrono via `aiosqlite`
 - **Broker Connectivity:** Connessione diretta Interactive Brokers tramite `ib_insync` su `172.24.0.2:4004` (Client ID 500)
-- **Frontend Dashboard:** HTML5 + Tailwind CSS (via CDN) con gestione a componenti leggeri
+- **CI/CD:** GitHub Actions workflow per build automatica Docker su GHCR (`.github/workflows/docker-publish.yml`)
 
 ## Stack Portainer e Server
 - **Porta Host:** `18881` (mappata su `8080`)
