@@ -1,15 +1,16 @@
 # Guida Deploy Stack Portainer - Tradest AI Trading Bot
 
-**Versione:** 1.0.1  
+**Versione:** 1.0.2  
 **Data:** 2026-10-14  
 
 ## 🚀 Panoramica dello Stack
 
 - **Applicazione:** Tradest (Software di Trading Automatico Indipendente basato su Google Gemini AI)
-- **Versione Corrente:** `1.0.1`
+- **Versione Corrente:** `1.0.2`
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Porta Host Esposta:** `18881` (mappata su porta container `8080`)
 - **Cartella Configurazioni Esterne Host:** `/srv/docker_conf/configs/tradest_conf`
+- **IBKR Gateway:** `172.24.0.2:4004` (VNC: `5900`)
 - **Architettura:** Applicazione autonoma, leggera e indipendente; decisioni di trade short/long prese direttamente in tempo reale da Google Gemini (modello selezionabile via UI tra `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp`) sulla base dello storico e delle condizioni live del mercato.
 
 ---
@@ -43,7 +44,6 @@ version: '3.8'
 
 services:
   tradest:
-    image: tradest:latest
     build:
       context: https://github.com/ciacky85/tradest.git#main
       dockerfile: docker/Dockerfile
@@ -59,7 +59,7 @@ services:
       - APP_PORT=8080
       - APP_LOG_LEVEL=INFO
       - TRADEST_CONF_DIR=/tradest_conf
-      - IBKR_HOST=192.168.1.212
+      - IBKR_HOST=172.24.0.2
       - IBKR_PORT=4004
       - IBKR_CLIENT_ID=500
       - NOTIFY_WEBHOOK_URL=http://192.168.1.212:9008/notify
@@ -97,10 +97,3 @@ networks:
 Una volta avviato lo stack, collegarsi con il browser a:
 - **Dashboard Web:** `http://<IP-DEL-TUO-SERVER>:18881/`
 - **Swagger API Docs:** `http://<IP-DEL-TUO-SERVER>:18881/docs`
-
-Dalla dashboard è possibile:
-1. Inserire la Google API Key (ottenibile su Google AI Studio)
-2. Cliccare su **Aggiorna Modelli da Google** per scoprire i modelli disponibili sul tuo account
-3. Selezionare il modello desiderato (es: `gemini-1.5-pro` per analisi approfondite o `gemini-1.5-flash` per risposte ultrarapide)
-4. Cliccare su **Test Connessione Live** per verificare la risposta di Google Gemini
-5. Cliccare su **Simula Analisi AI su XAUUSD** per testare la decisione in tempo reale sulle posizioni Long/Short con i relativi livelli di Stop-Loss e Take-Profit

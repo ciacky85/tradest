@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     gemini_temperature: float = 0.2
 
     # --- Interactive Brokers ---
-    ibkr_host: str = "192.168.1.212"
+    ibkr_host: str = "172.24.0.2"
     ibkr_port: int = 4004
     ibkr_client_id: int = 500
     ibkr_account_id: str = ""
