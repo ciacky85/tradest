@@ -1,0 +1,44 @@
+# docker-compose.yml - AI Trading Bot
+version: '3.8'
+
+services:
+  ai-trading-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ai-trading-bot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_NAME=AI-Trading-Bot
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      - APP_LOG_LEVEL=DEBUG
+      - IBKR_HOST=192.168.1.212
+      - IBKR_PORT=4004
+      - IBKR_CLIENT_ID=500
+      - NOTIFY_WEBHOOK_URL=http://192.168.1.212:9008/notify
+      - TRADING_ENABLED=false
+      - TRADING_MODE=paper
+      - TZ=Europe/Rome
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data:z
+      - ../logs:/app/logs:z
+      - ../config:/app/config:ro,z
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - trading-net
+
+networks:
+  trading-net:
+    driver: bridge

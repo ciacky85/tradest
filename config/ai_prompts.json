@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "description": "Template prompt per Google Gemini Pro - Analisi trading",
+  "prompts": {
+    "market_analysis": {
+      "system_instruction": "Sei un trader professionista esperto di scalping su XAUUSD (oro). Analizzi dati di mercato in tempo reale e fornisci strategie precise con alta confidenza. Rispondi SEMPRE in formato JSON strutturato. Non speculare: basa le decisioni SOLO sui dati forniti. Sei conservativo con il rischio e aggressivo con le opportunità chiare.",
+      "analysis_template": "Analizza il seguente contesto di mercato per {symbol} e fornisci una strategia di trading.\n\n## Dati Mercato Attuali\n- Prezzo corrente: ${current_price}\n- Bid: ${bid} | Ask: ${ask} | Spread: ${spread}\n- Volume: {volume}\n- Variazione giornaliera: {daily_change_pct}%\n\n## Indicatori Tecnici\n- RSI(14): {rsi}\n- EMA(9): {ema_fast} | EMA(21): {ema_slow}\n- MACD: {macd} | Signal: {macd_signal} | Histogram: {macd_hist}\n- ATR(14): {atr}\n- Bollinger Bands: Upper={bb_upper} | Middle={bb_middle} | Lower={bb_lower}\n\n## Posizioni Aperte\n{open_positions}\n\n## Storico Recente (ultime 10 operazioni)\n{recent_trades}\n\n## P&L Giornaliero\n- Profitto/Perdita oggi: ${daily_pnl}\n- Trades oggi: {trades_today}\n- Win rate oggi: {win_rate_today}%\n\n## Parametri Operativi\n- Budget massimo per trade: ${max_budget}\n- Stop-loss: {stop_loss_pct}%\n- Take-profit: {take_profit_pct}%\n- Direzione consentita: {allowed_direction}\n- Max position size: {max_position_size} oz\n\nRispondi con un JSON contenente:\n{\n  \"action\": \"BUY\" | \"SELL\" | \"HOLD\" | \"CLOSE\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"spiegazione breve della decisione\",\n  \"entry_price\": prezzo_entry_suggerito,\n  \"stop_loss\": prezzo_stop_loss,\n  \"take_profit\": prezzo_take_profit,\n  \"position_size_oz\": quantità_in_once,\n  \"urgency\": \"HIGH\" | \"MEDIUM\" | \"LOW\",\n  \"market_sentiment\": \"BULLISH\" | \"BEARISH\" | \"NEUTRAL\",\n  \"key_levels\": {\"support\": [], \"resistance\": []},\n  \"risk_reward_ratio\": float,\n  \"estimated_hold_time_minutes\": int\n}",
+      "response_format": "json"
+    },
+    "position_management": {
+      "system_instruction": "Sei un gestore di posizioni esperto. Valuti le posizioni aperte e decidi se mantenerle, chiuderle o modificare stop-loss/take-profit. Rispondi in formato JSON.",
+      "management_template": "Valuta la seguente posizione aperta su {symbol}:\n\n## Posizione\n- Direzione: {direction}\n- Entry price: ${entry_price}\n- Prezzo corrente: ${current_price}\n- P&L non realizzato: ${unrealized_pnl}\n- Tempo aperta: {hold_time_minutes} minuti\n- Stop-loss attuale: ${current_stop_loss}\n- Take-profit attuale: ${current_take_profit}\n\n## Mercato\n- Trend: {trend}\n- RSI: {rsi}\n- Volatilità (ATR): {atr}\n\nRispondi con:\n{\n  \"action\": \"HOLD\" | \"CLOSE\" | \"MODIFY_SL\" | \"MODIFY_TP\" | \"TRAIL_STOP\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"motivazione\",\n  \"new_stop_loss\": prezzo_o_null,\n  \"new_take_profit\": prezzo_o_null\n}",
+      "response_format": "json"
+    },
+    "emergency_assessment": {
+      "system_instruction": "Sei un analista di rischio. Valuta se è necessario fermare il trading a causa di condizioni avverse. Sii conservativo: preferisci fermare piuttosto che rischiare.",
+      "assessment_template": "Valuta le seguenti condizioni per decidere se continuare il trading:\n\n- Daily P&L: ${daily_pnl}\n- Daily loss limit: ${daily_loss_limit}\n- Posizioni aperte: {open_positions_count}\n- Drawdown sequenziale: {consecutive_losses} perdite consecutive\n- Volatilità mercato: {volatility_level}\n- Ultima operazione: {last_trade_result}\n\nRispondi con:\n{\n  \"continue_trading\": true | false,\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"motivazione\",\n  \"recommended_action\": \"CONTINUE\" | \"REDUCE_SIZE\" | \"PAUSE_30MIN\" | \"STOP_DAY\"\n}",
+      "response_format": "json"
+    }
+  }
+}
