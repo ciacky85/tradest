@@ -1,17 +1,18 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.4.0`
+- **Versione Corrente:** `1.5.0`
 - **Data:** 2026-10-15
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
 - **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
 - **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`, Client ID 500, Account verificato: `DUR222070`)
 - **Portainer Stack:** Porta `18881` esposta, volume esterno `/srv/docker_conf/configs/tradest_conf`
-- **Web Dashboard:** Dashboard Web attiva su `/` con avvio/arresto bot integrato per singolo titolo, task background paralleli e console scorrevole con log persistenti su SQLite
+- **Web Dashboard:** Dashboard Web attiva su `/` con interfaccia a Tab per ciascun titolo a portafoglio, etichette pulsanti completamente dinamiche e ripristino istantaneo dello stato di analisi, strategia e log
 
 ## Note Operative
-1. **Versione 1.4.0:** Integrato l'avvio e l'arresto del trading automatico direttamente all'interno della card di analisi del titolo. Creato il modulo [`MultiBotEngine`](strategy/bot_engine.py:32) che esegue task asincroni indipendenti in background per ciascun titolo: anche chiudendo il browser o ricollegandosi da un altro dispositivo, i bot rimangono attivi sul server. Aggiunta la tabella SQLite `bot_trading_logs` con persistenza di tutti gli eventi operativi (cicli, prezzi, RSI, decisioni AI, motivazioni). Inserita nella Web Dashboard la finestra scorrevole (console interattiva con auto-scroll) che filtra istantaneamente i log passando da un titolo all'altro.
+1. **Versione 1.5.0:** Riprogettata l'interfaccia di analisi e trading con Tab interattivi dedicati per ogni titolo a portafoglio (`XAUUSD`, `NVDA`, `SPCX`, `IB1T`). Risolto il refuso nel testo del pulsante che rimaneva statico su "XAUUSD": ora aggiorna dinamicamente l'etichetta `Analizza {simbolo} & Genera Strategia` sia durante che al termine dell'analisi. Ciascuna scheda mostra lo stato del bot (pallino animato verde o grigio) e memorizza/ripristina istantaneamente l'analisi, la decisione strategica, il budget e i log del titolo corrispondente via endpoint dedicato `/api/strategy/{symbol}`.
+2. **Versione 1.4.0:** Integrato l'avvio e l'arresto del trading automatico direttamente all'interno della card di analisi del titolo. Creato il modulo [`MultiBotEngine`](strategy/bot_engine.py:32) che esegue task asincroni indipendenti in background per ciascun titolo.
 2. **Versione 1.3.0:** Supporto completo alla selezione dinamica dello strumento finanziario (XAUUSD, NVDA, SPCX, IB1T) e configurazione/salvataggio del budget dedicato per titolo in SQLite (`symbols_budget`). Implementata logica tassativa di gestione del budget e quote intere (no frazioni).
 2. **Versione 1.2.1:** Risolto definitivamente il problema dei segnaposto non valorizzati (supportati sia `{var}` che `{{var}}` e forzato auto-sync di `ai_prompts.json` su modifiche). Implementata l'importazione preventiva del portafoglio IBKR (`DUR222070`) con isolamento e valutazione specifica della posizione aperta su XAUUSD prima di elaborare la strategia di scalping.
 2. **Versione 1.2.0:** Implementato modulo [`MarketAnalyzer`](data/market_analyzer.py:59) (estrazione barre storiche 30 giorni e 7 giorni da IBKR, calcolo EMA, RSI, MACD, ATR, Bollinger, range e supporti/resistenze) e modulo [`ScalpingStrategyManager`](strategy/scalping_strategy.py:32). Integrata validazione pre-avvio del trading automatico.

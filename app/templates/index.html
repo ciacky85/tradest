@@ -395,25 +395,15 @@
           </div>
           <div>
             <h2 class="text-lg font-semibold text-white">Analisi Tecnica & Strategia di Scalping Multi-Asset</h2>
-            <p class="text-xs text-slate-400">Seleziona lo strumento, definisci il budget e genera la strategia di scalping prima dell'avvio</p>
+            <p class="text-xs text-slate-400">Passa da un tab all'altro per analizzare ciascun titolo a portafoglio, impostare il budget e avviare il trading parallelo</p>
           </div>
         </div>
 
-        <!-- Selettore Simbolo e Budget di Trading Personalizzato -->
+        <!-- Budget & Bottone di Analisi -->
         <div class="flex flex-wrap items-center gap-3">
           <div>
-            <label class="block text-[11px] text-slate-400 font-semibold uppercase mb-1">Titolo / Strumento</label>
-            <select id="tradeSymbolSelect" onchange="onSymbolChange()" class="input-field px-3 py-1.5 rounded-xl text-sm font-semibold">
-              <option value="XAUUSD">XAUUSD (Oro Spot CFD)</option>
-              <option value="NVDA">NVDA (NVIDIA Corp)</option>
-              <option value="SPCX">SPCX (CrossingBridge SPAC ETF)</option>
-              <option value="IB1T">IB1T (iShares Treasury ETF)</option>
-            </select>
-          </div>
-
-          <div>
             <label class="block text-[11px] text-slate-400 font-semibold uppercase mb-1 flex items-center justify-between">
-              <span>Budget Max Trade</span>
+              <span>Budget <span id="budgetSymbolHint" class="text-sky-400">XAUUSD</span></span>
               <span id="budgetSavedBadge" class="text-[10px] text-emerald-400 hidden font-mono">Salvato</span>
             </label>
             <div class="relative">
@@ -424,9 +414,29 @@
           </div>
 
           <button onclick="simulateTradeAnalysis()" id="btnSimulateTrade" class="mt-4 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-sky-500/25">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza & Genera Strategia
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza <span id="btnSymbolLabel">XAUUSD</span> & Genera Strategia
           </button>
         </div>
+      </div>
+
+      <!-- Barra dei Tab per Titolo a Portafoglio -->
+      <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto" id="symbolTabsBar">
+        <button onclick="switchSymbolTab('XAUUSD')" id="tab_XAUUSD" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow-md shadow-sky-600/30">
+          <i class="fa-solid fa-coins text-amber-400"></i> XAUUSD
+          <span id="tabBadge_XAUUSD" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        </button>
+        <button onclick="switchSymbolTab('NVDA')" id="tab_NVDA" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-microchip text-emerald-400"></i> NVDA
+          <span id="tabBadge_NVDA" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        </button>
+        <button onclick="switchSymbolTab('SPCX')" id="tab_SPCX" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-chart-pie text-indigo-400"></i> SPCX
+          <span id="tabBadge_SPCX" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        </button>
+        <button onclick="switchSymbolTab('IB1T')" id="tab_IB1T" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-building-columns text-rose-400"></i> IB1T
+          <span id="tabBadge_IB1T" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        </button>
       </div>
 
       <!-- Output Decisione AI -->
@@ -724,9 +734,30 @@
       }
     }
 
-    async function onSymbolChange() {
-      const sym = document.getElementById('tradeSymbolSelect').value;
+    let currentSelectedSymbol = 'XAUUSD';
+
+    async function switchSymbolTab(sym) {
+      currentSelectedSymbol = sym;
+      const symbols = ['XAUUSD', 'NVDA', 'SPCX', 'IB1T'];
+
+      // Aggiorna stili bottoni tab
+      symbols.forEach(s => {
+        const tabBtn = document.getElementById(`tab_${s}`);
+        if (tabBtn) {
+          if (s === sym) {
+            tabBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow-md shadow-sky-600/30';
+          } else {
+            tabBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white';
+          }
+        }
+      });
+
+      // Aggiorna etichette dinamiche
+      document.getElementById('budgetSymbolHint').innerText = sym;
+      document.getElementById('btnSymbolLabel').innerText = sym;
       document.getElementById('logSymbolLabel').innerText = sym;
+
+      // Recupera budget del simbolo
       try {
         const res = await fetch('/api/symbols/budget');
         if (res.ok) {
@@ -740,12 +771,75 @@
       } catch (e) {
         console.error('Errore recupero budget per simbolo', e);
       }
+
+      // Recupera strategia salvata per questo simbolo e popola la card
+      await loadSavedStrategyForSymbol(sym);
+
+      // Aggiorna stato del bot e carica i log
       await updateSymbolBotStatus();
       await fetchBotLogs();
     }
 
+    async function loadSavedStrategyForSymbol(sym) {
+      try {
+        const res = await fetch(`/api/strategy/${sym}`);
+        if (res.ok) {
+          const resData = await res.json();
+          const data = resData.strategy;
+          const container = document.getElementById('aiDecisionContainer');
+          if (data) {
+            container.classList.remove('hidden');
+            renderStrategyData(data);
+          } else {
+            // Se non c'è ancora un'analisi per questo simbolo
+            container.classList.add('hidden');
+          }
+        }
+      } catch (e) {
+        console.error('Errore caricamento strategia salvata per ' + sym, e);
+      }
+    }
+
+    function renderStrategyData(data) {
+      const act = data.action || 'HOLD';
+      const actEl = document.getElementById('aiActionVal');
+      actEl.innerText = act;
+      actEl.className = 'text-2xl font-black mt-1 ' + (act === 'BUY' ? 'text-emerald-400' : act === 'SELL' ? 'text-rose-400' : 'text-amber-400');
+
+      document.getElementById('aiConfidenceVal').innerText = `${Math.round((data.confidence || 0) * 100)}%`;
+      document.getElementById('aiSentimentVal').innerText = data.market_sentiment || 'NEUTRAL';
+      document.getElementById('aiSetupVal').innerText = data.scalping_setup || 'Scalping Setup';
+      document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
+      document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size || data.position_size_oz || 1} ${data.unit || 'pz'}`;
+      document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
+
+      if (data.existing_position) {
+        const ep = data.existing_position;
+        document.getElementById('aiExistingPosVal').innerText = ep.details || '-';
+        const badge = document.getElementById('aiPosBadge');
+        if (ep.has_position) {
+          badge.innerText = 'Posizione Aperta';
+          badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        } else {
+          badge.innerText = 'Nessuna Posizione';
+          badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+        }
+      }
+
+      if (data.historical_context) {
+        const hc = data.historical_context;
+        document.getElementById('aiTrend30dVal').innerText = `${hc.trend_30d || '-'} (${hc.change_pct_30d > 0 ? '+' : ''}${hc.change_pct_30d}%)`;
+        document.getElementById('aiRange30dVal').innerText = `Range 30d: $${hc.range_30d ? hc.range_30d[0] : '-'} - $${hc.range_30d ? hc.range_30d[1] : '-'}`;
+
+        document.getElementById('aiTrend7dVal').innerText = `${hc.trend_7d || '-'} (${hc.change_pct_7d > 0 ? '+' : ''}${hc.change_pct_7d}%)`;
+        document.getElementById('aiRange7dVal').innerText = `Range 7d: $${hc.range_7d ? hc.range_7d[0] : '-'} - $${hc.range_7d ? hc.range_7d[1] : '-'} | RSI: ${hc.rsi}`;
+      }
+
+      document.getElementById('rawAiJson').innerText = JSON.stringify(data, null, 2);
+    }
+
     async function updateSymbolBotStatus() {
-      const sym = document.getElementById('tradeSymbolSelect').value;
+      const sym = currentSelectedSymbol;
       const dot = document.getElementById('botSymbolStatusDot');
       const text = document.getElementById('botSymbolStatusText');
       const btnStart = document.getElementById('btnStartSymbolBot');
@@ -755,7 +849,17 @@
         const res = await fetch('/bot/status/all');
         if (res.ok) {
           const data = await res.json();
-          const isActive = data.bots && data.bots[sym];
+          const bots = data.bots || {};
+
+          // Aggiorna i pallini di stato su ciascun tab
+          ['XAUUSD', 'NVDA', 'SPCX', 'IB1T'].forEach(s => {
+            const b = document.getElementById(`tabBadge_${s}`);
+            if (b) {
+              b.className = bots[s] ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' : 'w-2 h-2 rounded-full bg-slate-500';
+            }
+          });
+
+          const isActive = bots[sym];
           if (isActive) {
             dot.className = 'w-3 h-3 rounded-full bg-emerald-400 animate-pulse';
             text.innerText = `Bot ${sym}: IN ESECUZIONE (Background)`;
@@ -776,7 +880,7 @@
     }
 
     async function toggleSymbolBot(enable) {
-      const sym = document.getElementById('tradeSymbolSelect').value;
+      const sym = currentSelectedSymbol;
       const endpoint = enable ? '/bot/start' : '/bot/stop';
 
       try {
@@ -799,7 +903,7 @@
     }
 
     async function fetchBotLogs() {
-      const sym = document.getElementById('tradeSymbolSelect').value;
+      const sym = currentSelectedSymbol;
       const container = document.getElementById('botConsoleLogs');
       const autoScroll = document.getElementById('autoScrollLogs').checked;
 
@@ -831,7 +935,7 @@
 
     async function simulateTradeAnalysis() {
       const btn = document.getElementById('btnSimulateTrade');
-      const sym = document.getElementById('tradeSymbolSelect').value;
+      const sym = currentSelectedSymbol;
       const budget = parseFloat(document.getElementById('tradeBudgetInput').value) || 5000;
 
       btn.disabled = true;
@@ -860,47 +964,14 @@
         const container = document.getElementById('aiDecisionContainer');
         container.classList.remove('hidden');
 
-        const act = data.action || 'HOLD';
-        const actEl = document.getElementById('aiActionVal');
-        actEl.innerText = act;
-        actEl.className = 'text-2xl font-black mt-1 ' + (act === 'BUY' ? 'text-emerald-400' : act === 'SELL' ? 'text-rose-400' : 'text-amber-400');
-
-        document.getElementById('aiConfidenceVal').innerText = `${Math.round((data.confidence || 0) * 100)}%`;
-        document.getElementById('aiSentimentVal').innerText = data.market_sentiment || 'NEUTRAL';
-        document.getElementById('aiSetupVal').innerText = data.scalping_setup || 'Scalping Setup';
-        document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
-        document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size_oz || 1} oz`;
-        document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
-
-        if (data.existing_position) {
-          const ep = data.existing_position;
-          document.getElementById('aiExistingPosVal').innerText = ep.details || '-';
-          const badge = document.getElementById('aiPosBadge');
-          if (ep.has_position) {
-            badge.innerText = 'Posizione Aperta';
-            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-          } else {
-            badge.innerText = 'Nessuna Posizione';
-            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700';
-          }
-        }
-
-        if (data.historical_context) {
-          const hc = data.historical_context;
-          document.getElementById('aiTrend30dVal').innerText = `${hc.trend_30d || '-'} (${hc.change_pct_30d > 0 ? '+' : ''}${hc.change_pct_30d}%)`;
-          document.getElementById('aiRange30dVal').innerText = `Range 30d: $${hc.range_30d ? hc.range_30d[0] : '-'} - $${hc.range_30d ? hc.range_30d[1] : '-'}`;
-
-          document.getElementById('aiTrend7dVal').innerText = `${hc.trend_7d || '-'} (${hc.change_pct_7d > 0 ? '+' : ''}${hc.change_pct_7d}%)`;
-          document.getElementById('aiRange7dVal').innerText = `Range 7d: $${hc.range_7d ? hc.range_7d[0] : '-'} - $${hc.range_7d ? hc.range_7d[1] : '-'} | RSI: ${hc.rsi}`;
-        }
-
-        document.getElementById('rawAiJson').innerText = JSON.stringify(data, null, 2);
+        // Renderizza la strategia usando la funzione unificata
+        renderStrategyData(data);
 
       } catch (e) {
         alert('Errore chiamata analisi: ' + e.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Analizza XAUUSD & Genera Strategia';
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Analizza <span id="btnSymbolLabel">${sym}</span> & Genera Strategia`;
       }
     }
 
@@ -1096,7 +1167,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadInitialStatus();
-      onSymbolChange();
+      switchSymbolTab('XAUUSD');
       // Polling periodico ogni 5 secondi per log e status bot
       setInterval(() => {
         updateSymbolBotStatus();

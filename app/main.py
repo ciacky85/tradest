@@ -361,6 +361,21 @@ async def save_symbol_budget(req: dict[str, Any]) -> dict[str, Any]:
     return {"status": "saved", "symbol": sym, "budget": budget}
 
 
+@app.get(
+    "/api/strategy/{symbol}",
+    summary="Recupera la strategia salvata per il simbolo specificato",
+    tags=["Google Gemini"],
+)
+async def get_saved_strategy(symbol: str) -> dict[str, Any]:
+    """Recupera l'ultima strategia definita per il simbolo scelto."""
+    sym = symbol.upper().strip()
+    db = get_db()
+    strategy = await db.get_config(f"active_strategy_{sym}")
+    if not strategy and sym == "XAUUSD":
+        strategy = await db.get_config("active_scalping_strategy")
+    return {"symbol": sym, "strategy": strategy}
+
+
 # ---------------------------------------------------------------------------
 # Endpoint Base & Health Check
 # ---------------------------------------------------------------------------
