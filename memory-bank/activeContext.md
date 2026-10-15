@@ -1,17 +1,18 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.2.0`
+- **Versione Corrente:** `1.2.1`
 - **Data:** 2026-10-15
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
 - **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
 - **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`, Client ID 500, Account verificato: `DUR222070`)
 - **Portainer Stack:** Porta `18881` esposta, volume esterno `/srv/docker_conf/configs/tradest_conf`
-- **Web Dashboard:** Dashboard Web attiva su `/` con analisi XAUUSD 30d/7d, definizione strategia di scalping AI e avvio controllato del trading automatico
+- **Web Dashboard:** Dashboard Web attiva su `/` con verifica preventiva del portafoglio IBKR e posizione XAUUSD, analisi storica e compilazione affidabile dei segnaposto
 
 ## Note Operative
-1. **Versione 1.2.0:** Implementato modulo [`MarketAnalyzer`](data/market_analyzer.py:59) (estrazione barre storiche 30 giorni e 7 giorni da IBKR, calcolo EMA, RSI, MACD, ATR, Bollinger, range e supporti/resistenze) e modulo [`ScalpingStrategyManager`](strategy/scalping_strategy.py:32). Risolto il blocco di simulazione analisi (KeyError JSON template). Integrata validazione pre-avvio del trading automatico: il bot richiede obbligatoriamente una strategia di scalping recente (< 4 ore), verifica il portafoglio reale e la disponibilità di buying power rispetto al budget stabilito per trade.
+1. **Versione 1.2.1:** Risolto definitivamente il problema dei segnaposto non valorizzati (supportati sia `{var}` che `{{var}}` e forzato auto-sync di `ai_prompts.json` su modifiche). Implementata l'importazione preventiva del portafoglio IBKR (`DUR222070`) con isolamento e valutazione specifica della posizione aperta su XAUUSD prima di elaborare la strategia di scalping. Aggiornata la Web Dashboard con box dedicato per lo stato della posizione reale su XAUUSD.
+2. **Versione 1.2.0:** Implementato modulo [`MarketAnalyzer`](data/market_analyzer.py:59) (estrazione barre storiche 30 giorni e 7 giorni da IBKR, calcolo EMA, RSI, MACD, ATR, Bollinger, range e supporti/resistenze) e modulo [`ScalpingStrategyManager`](strategy/scalping_strategy.py:32). Integrata validazione pre-avvio del trading automatico.
 2. **Versione 1.1.0:** Configurato token Omniroute dedicato `sk-92fbd7ff0bd42a7d-82e301-62dbdb1f` verificato con successo su `http://192.168.1.212:9292/v1` (modello `carlo-gemini` e `gemini-3.8-flash-tiered`). Aggiornata UI per evitare sovrascritture accidentali della chiave.
 2. **Versione 1.0.9:** Supporto nativo al gateway Omniroute / Antigravity su `http://192.168.1.212:9292/v1` con modelli `carlo-gemini`, `antigravity/gemini-3.8-flash-tiered`, ecc. Risolto definitivamente il problema delle quote 429! Credenziali IBKR precompilate di default su `lhungq693` / `secretpaper`.
 2. **Versione 1.0.8:** Estrazione e visualizzazione completa dei dati del portafoglio IBKR (posizioni dettagliate con P&L, prezzi di mercato e carico, tipo strumento e borsa; transazioni ed ordini). Normalizzazione e diagnostica per modello `gemini-2.5-flash` e risoluzione gestione quote 429.

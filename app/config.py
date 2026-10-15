@@ -44,7 +44,7 @@ LOGS_DIR = (
 def ensure_conf_files_exist() -> None:
     """
     Assicura che la directory di configurazione esterna esista
-    e che i file template JSON siano copiati se non già presenti.
+    e sincronizza i template JSON aggiornati.
     """
     CONF_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     DATA_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -54,11 +54,13 @@ def ensure_conf_files_exist() -> None:
     for jf in json_files:
         dest = CONF_STORAGE_DIR / jf
         src = DEFAULT_TEMPLATES_DIR / jf
-        if not dest.exists() and src.exists():
-            try:
-                shutil.copy2(src, dest)
-            except Exception:
-                pass
+        if src.exists():
+            # Se la destinazione non esiste o se il file sorgente nel repository è più recente, aggiorna
+            if not dest.exists() or src.stat().st_mtime > dest.stat().st_mtime:
+                try:
+                    shutil.copy2(src, dest)
+                except Exception:
+                    pass
 
 
 # Inizializza i file al primo caricamento del modulo

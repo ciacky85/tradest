@@ -445,8 +445,20 @@
           </div>
         </div>
 
+        <!-- Box Posizione Rilevata nel Portafoglio IBKR -->
+        <div class="p-3.5 rounded-xl bg-sky-950/40 border border-sky-800/40 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-wallet text-sky-400 text-sm"></i>
+            <div>
+              <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold block">Posizione Esistente XAUUSD nel Portafoglio IBKR</span>
+              <span id="aiExistingPosVal" class="text-xs font-mono text-sky-200 font-medium">-</span>
+            </div>
+          </div>
+          <span id="aiPosBadge" class="text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-300 border border-slate-700">Verificato</span>
+        </div>
+
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span class="text-xs font-semibold text-slate-400">Ragionamento Strategico AI:</span>
+          <span class="text-xs font-semibold text-slate-400">Ragionamento Strategico di Scalping:</span>
           <p id="aiReasoningVal" class="text-sm text-slate-200 mt-1.5 leading-relaxed font-sans"></p>
         </div>
 
@@ -672,6 +684,19 @@
         document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
         document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size_oz || 1} oz`;
         document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
+
+        if (data.existing_position) {
+          const ep = data.existing_position;
+          document.getElementById('aiExistingPosVal').innerText = ep.details || '-';
+          const badge = document.getElementById('aiPosBadge');
+          if (ep.has_position) {
+            badge.innerText = 'Posizione Aperta';
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          } else {
+            badge.innerText = 'Nessuna Posizione';
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+          }
+        }
 
         if (data.historical_context) {
           const hc = data.historical_context;
