@@ -71,20 +71,36 @@
       <div class="card rounded-2xl p-6 lg:col-span-2 space-y-6 shadow-xl">
         <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
-              <i class="fa-brands fa-google text-lg"></i>
+            <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
+              <i class="fa-solid fa-microchip text-lg"></i>
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-white">Google Gemini AI - Connessione & Modelli</h2>
-              <p class="text-xs text-slate-400">Autentica il tuo account Google via API Key e scegli il modello per le scelte di trade</p>
+              <h2 class="text-lg font-semibold text-white">Motore AI per il Trading - Connessione & Modelli</h2>
+              <p class="text-xs text-slate-400">Configura il gateway AI (Omniroute locale o Google AI Studio) per le scelte di trade</p>
             </div>
           </div>
-          <span class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">Google AI Studio</span>
+          <span id="providerBadge" class="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold">Omniroute Gateway</span>
         </div>
 
-        <!-- Form API Key & Modello -->
+        <!-- Form Selezione Provider, Endpoint e Modello -->
         <div class="space-y-4">
-          <div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Provider AI</label>
+              <select id="aiProviderSelect" onchange="onProviderChange()" class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium">
+                <option value="omniroute">Omniroute / Antigravity Gateway (Consigliato - Zero 429)</option>
+                <option value="google">Google AI Studio REST (Cloud Diretto)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Endpoint Base URL</label>
+              <input type="text" id="aiBaseUrlInput" value="http://192.168.1.212:9292/v1"
+                class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-mono" />
+            </div>
+          </div>
+
+          <!-- Campo API Key: visibile solo se Google AI Studio o se specificato -->
+          <div id="apiKeyContainer" class="hidden">
             <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
               <span>Google Gemini API Key</span>
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 transition text-[11px] flex items-center gap-1">
@@ -520,18 +536,18 @@
       const prov = document.getElementById('aiProviderSelect').value;
       const baseUrlInput = document.getElementById('aiBaseUrlInput');
       const keyInput = document.getElementById('geminiApiKeyInput');
+      const keyContainer = document.getElementById('apiKeyContainer');
       const badge = document.getElementById('providerBadge');
-      
+
       if (prov === 'omniroute') {
         baseUrlInput.value = 'http://192.168.1.212:9292/v1';
         baseUrlInput.disabled = false;
-        if (!keyInput.value || keyInput.value.startsWith('AIza') || keyInput.value.includes('...')) {
-          keyInput.value = 'sk-92fbd7ff0bd42a7d-82e301-62dbdb1f';
-        }
+        keyContainer.classList.add('hidden');
         badge.innerText = 'Omniroute Gateway (Zero 429)';
         badge.className = 'text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold';
       } else {
         baseUrlInput.disabled = true;
+        keyContainer.classList.remove('hidden');
         badge.innerText = 'Google AI Studio REST';
         badge.className = 'text-xs text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-semibold';
       }
@@ -540,7 +556,10 @@
     async function saveGeminiConfig() {
       const provider = document.getElementById('aiProviderSelect').value;
       const baseUrl = document.getElementById('aiBaseUrlInput').value.trim();
-      const apiKey = document.getElementById('geminiApiKeyInput').value.trim();
+      let apiKey = document.getElementById('geminiApiKeyInput').value.trim();
+      if (provider === 'omniroute' && !apiKey) {
+        apiKey = 'sk-92fbd7ff0bd42a7d-82e301-62dbdb1f';
+      }
       const model = document.getElementById('geminiModelSelect').value;
       const temp = parseFloat(document.getElementById('geminiTempInput').value) || 0.2;
 
