@@ -98,7 +98,18 @@ CREATE TABLE IF NOT EXISTS orders (
     filled_at TIMESTAMP
 );
 
+-- Tabella log dettagliati di trading persistenti per simbolo
+CREATE TABLE IF NOT EXISTS bot_trading_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    level TEXT NOT NULL,
+    message TEXT NOT NULL,
+    metadata TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indici per performance query frequenti
+CREATE INDEX IF NOT EXISTS idx_bot_logs_symbol ON bot_trading_logs(symbol, id DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_closed_at ON trades(closed_at);
 CREATE INDEX IF NOT EXISTS idx_ai_decisions_created ON ai_decisions(created_at);
@@ -337,6 +348,43 @@ class Database:
             ),
         )
         await self._conn.commit()
+
+    # --- Bot Trading Logs (Persistenti & Multi-Titolo) ---
+
+    async def log_bot_event(
+        self,
+        symbol: str,
+        level: str,
+        message: str,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Registra un evento/log dettagliato di trading nel database."""
+        await self._ensure_connected()
+        assert self._conn is not None
+        meta_str = json.dumps(metadata) if metadata else None
+        query = "INSERT INTO bot_trading_logs (symbol, level, message, metadata) VALUES (?, ?, ?, ?)"
+        await self._conn.execute(query, (symbol.upper(), level.upper(), message, meta_str))
+        await self._conn.commit()
+
+    async def get_bot_logs(
+        self,
+        symbol: Optional[str] = None,
+        limit: int = 150,
+    ) -> list[dict[str, Any]]:
+        """Recupera i log di trading ordinati cronologicamente, filtrabili per simbolo."""
+        await self._ensure_connected()
+        assert self._conn is not None
+        if symbol:
+            query = "SELECT * FROM bot_trading_logs WHERE symbol = ? ORDER BY id DESC LIMIT ?"
+            params = (symbol.upper(), limit)
+        else:
+            query = "SELECT * FROM bot_trading_logs ORDER BY id DESC LIMIT ?"
+            params = (limit,)
+
+        async with self._conn.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            result = [dict(r) for r in reversed(rows)]
+            return result
 
     # --- Health Check ---
 

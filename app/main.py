@@ -131,6 +131,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Errore inizializzazione database", error=str(exc))
 
+    # Startup: ripristina bot precedentemente attivi su ciascun simbolo
+    try:
+        from strategy.bot_engine import get_bot_engine
+        engine = get_bot_engine()
+        await engine.initialize_from_db()
+    except Exception as exc:
+        logger.warning("Ripristino bot in background fallito", exc=str(exc))
+
     yield
 
     # --- SHUTDOWN ---
@@ -622,22 +630,23 @@ async def get_ai_decisions(limit: int = 20) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Endpoint Controllo Bot
 # ---------------------------------------------------------------------------
-class BotStartRequest(BaseModel):
+class BotControlRequest(BaseModel):
     symbol: Optional[str] = "XAUUSD"
 
 
 @app.post(
     "/bot/start",
-    summary="Avvia il bot di trading con validazione strategia e portafoglio per il titolo",
+    summary="Avvia il bot di trading per il titolo selezionato",
     tags=["Controllo Bot"],
 )
-async def start_bot(req: Optional[BotStartRequest] = None) -> dict[str, Any]:
+async def start_bot(req: Optional[BotControlRequest] = None) -> dict[str, Any]:
     """
-    Abilita il trading automatico verificando prima che sia stata
-    definita una strategia di scalping recente e conforme ai limiti di budget e portafoglio per il titolo.
+    Abilita il trading automatico in background per il singolo titolo,
+    verificando la disponibilità di budget e strategia valida.
     """
     sym = (req.symbol if req and req.symbol else "XAUUSD").upper().strip()
     from strategy.scalping_strategy import get_scalping_manager
+    from strategy.bot_engine import get_bot_engine
 
     manager = get_scalping_manager()
     readiness = await manager.validate_auto_trading_readiness(symbol=sym)
@@ -645,17 +654,21 @@ async def start_bot(req: Optional[BotStartRequest] = None) -> dict[str, Any]:
     if not readiness["can_start"]:
         raise HTTPException(
             status_code=400,
-            detail=readiness.get("reason", f"Impossibile avviare il trading automatico su {sym}"),
+            detail=readiness.get("reason", f"Impossibile avviare il trading su {sym}"),
         )
+
+    engine = get_bot_engine()
+    engine.start_symbol_bot(sym)
 
     cfg = get_settings()
     cfg.trading_enabled = True
     db = get_db()
     await db.set_config("trading_enabled", True)
-    logger.info("Bot avviato con successo dopo verifica strategia e portafoglio")
+
     return {
         "status": "started",
-        "trading_enabled": True,
+        "symbol": sym,
+        "is_active": True,
         "active_strategy": readiness.get("strategy"),
         "account": readiness.get("account"),
     }
@@ -663,17 +676,46 @@ async def start_bot(req: Optional[BotStartRequest] = None) -> dict[str, Any]:
 
 @app.post(
     "/bot/stop",
-    summary="Arresta il bot di trading",
+    summary="Arresta il bot di trading per il titolo",
     tags=["Controllo Bot"],
 )
-async def stop_bot() -> dict[str, str]:
-    """Disabilita il trading automatico (mantiene posizioni esistenti)."""
-    cfg = get_settings()
-    cfg.trading_enabled = False
+async def stop_bot(req: Optional[BotControlRequest] = None) -> dict[str, Any]:
+    """Arresta il task in background per il titolo indicato."""
+    sym = (req.symbol if req and req.symbol else "XAUUSD").upper().strip()
+    from strategy.bot_engine import get_bot_engine
+
+    engine = get_bot_engine()
+    await engine.stop_symbol_bot(sym)
+
+    return {"status": "stopped", "symbol": sym, "is_active": False}
+
+
+@app.get(
+    "/bot/status/all",
+    summary="Restituisce lo stato di tutti i bot per ciascun titolo",
+    tags=["Controllo Bot"],
+)
+async def get_all_bots_status() -> dict[str, Any]:
+    """Verifica quali bot sono attivi in background per ciascun simbolo."""
+    from strategy.bot_engine import get_bot_engine
+
+    engine = get_bot_engine()
+    return {"bots": engine.get_all_bots_status()}
+
+
+@app.get(
+    "/bot/logs",
+    summary="Recupera i log dettagliati di trading (persistenti)",
+    tags=["Controllo Bot"],
+)
+async def get_bot_logs(symbol: Optional[str] = None, limit: int = 100) -> dict[str, Any]:
+    """
+    Restituisce la cronologia dei log di esecuzione dal database SQLite,
+    filtrabili per simbolo (es. XAUUSD, NVDA).
+    """
     db = get_db()
-    await db.set_config("trading_enabled", False)
-    logger.info("Bot arrestato manualmente dall'utente")
-    return {"status": "stopped", "trading_enabled": "false"}
+    logs = await db.get_bot_logs(symbol=symbol, limit=limit)
+    return {"symbol": symbol, "logs": logs, "count": len(logs)}
 
 
 @app.post(

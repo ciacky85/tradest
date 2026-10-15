@@ -487,6 +487,48 @@
           <p id="aiReasoningVal" class="text-sm text-slate-200 mt-1.5 leading-relaxed font-sans"></p>
         </div>
 
+        <!-- Sezione Controllo Bot & Console Log Verbosi per il Titolo Selezionato -->
+        <div class="pt-2 border-t border-slate-800/80 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-3">
+              <div id="botSymbolStatusDot" class="w-3 h-3 rounded-full bg-slate-600"></div>
+              <div>
+                <span id="botSymbolStatusText" class="text-sm font-semibold text-white">Bot per Titolo: INATTIVO</span>
+                <p class="text-xs text-slate-400">Opera in background continuo sul budget allocato, anche a browser chiuso</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="toggleSymbolBot(true)" id="btnStartSymbolBot" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-600/25">
+                <i class="fa-solid fa-play"></i> Avvia Trading su questo Titolo
+              </button>
+              <button onclick="toggleSymbolBot(false)" id="btnStopSymbolBot" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-rose-600/25">
+                <i class="fa-solid fa-stop"></i> Ferma Bot
+              </button>
+            </div>
+          </div>
+
+          <!-- Finestra Scorrevole Log Verbosi -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+              <span class="flex items-center gap-1.5 font-semibold">
+                <i class="fa-solid fa-terminal text-sky-400"></i> Console Attività & Log in Tempo Reale (<span id="logSymbolLabel" class="text-sky-300 font-mono">XAUUSD</span>)
+              </span>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-1 text-[11px] cursor-pointer">
+                  <input type="checkbox" id="autoScrollLogs" checked class="rounded border-slate-700 bg-slate-800 text-sky-500" />
+                  <span>Auto-scroll</span>
+                </label>
+                <button onclick="fetchBotLogs()" class="hover:text-white transition text-[11px]">
+                  <i class="fa-solid fa-rotate-right"></i> Aggiorna
+                </button>
+              </div>
+            </div>
+            <div id="botConsoleLogs" class="h-60 overflow-y-auto bg-slate-950 text-slate-300 p-3.5 rounded-xl border border-slate-800 font-mono text-[11px] space-y-1.5 shadow-inner">
+              <div class="text-slate-500 italic">In attesa di eventi...</div>
+            </div>
+          </div>
+        </div>
+
         <div>
           <button onclick="document.getElementById('rawAiJson').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-white underline">
             Mostra / Nascondi JSON raw
@@ -684,6 +726,7 @@
 
     async function onSymbolChange() {
       const sym = document.getElementById('tradeSymbolSelect').value;
+      document.getElementById('logSymbolLabel').innerText = sym;
       try {
         const res = await fetch('/api/symbols/budget');
         if (res.ok) {
@@ -696,6 +739,93 @@
         }
       } catch (e) {
         console.error('Errore recupero budget per simbolo', e);
+      }
+      await updateSymbolBotStatus();
+      await fetchBotLogs();
+    }
+
+    async function updateSymbolBotStatus() {
+      const sym = document.getElementById('tradeSymbolSelect').value;
+      const dot = document.getElementById('botSymbolStatusDot');
+      const text = document.getElementById('botSymbolStatusText');
+      const btnStart = document.getElementById('btnStartSymbolBot');
+      const btnStop = document.getElementById('btnStopSymbolBot');
+
+      try {
+        const res = await fetch('/bot/status/all');
+        if (res.ok) {
+          const data = await res.json();
+          const isActive = data.bots && data.bots[sym];
+          if (isActive) {
+            dot.className = 'w-3 h-3 rounded-full bg-emerald-400 animate-pulse';
+            text.innerText = `Bot ${sym}: IN ESECUZIONE (Background)`;
+            text.className = 'text-sm font-semibold text-emerald-400';
+            btnStart.classList.add('opacity-50', 'pointer-events-none');
+            btnStop.classList.remove('opacity-50', 'pointer-events-none');
+          } else {
+            dot.className = 'w-3 h-3 rounded-full bg-slate-600';
+            text.innerText = `Bot ${sym}: INATTIVO`;
+            text.className = 'text-sm font-semibold text-white';
+            btnStart.classList.remove('opacity-50', 'pointer-events-none');
+            btnStop.classList.add('opacity-50', 'pointer-events-none');
+          }
+        }
+      } catch (e) {
+        console.error('Errore stato bot', e);
+      }
+    }
+
+    async function toggleSymbolBot(enable) {
+      const sym = document.getElementById('tradeSymbolSelect').value;
+      const endpoint = enable ? '/bot/start' : '/bot/stop';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          await updateSymbolBotStatus();
+          await fetchBotLogs();
+          showResultBox(true, enable ? `BOT ${sym} AVVIATO IN BACKGROUND!` : `BOT ${sym} FERMATO!`);
+        } else {
+          alert(`AVVIO BLOCCATO PER ${sym}:\n${data.detail || 'Verifica la strategia e il portafoglio'}`);
+        }
+      } catch (e) {
+        alert('Errore operazione bot: ' + e.message);
+      }
+    }
+
+    async function fetchBotLogs() {
+      const sym = document.getElementById('tradeSymbolSelect').value;
+      const container = document.getElementById('botConsoleLogs');
+      const autoScroll = document.getElementById('autoScrollLogs').checked;
+
+      try {
+        const res = await fetch(`/bot/logs?symbol=${sym}&limit=80`);
+        if (res.ok) {
+          const data = await res.json();
+          const logs = data.logs || [];
+          if (logs.length === 0) {
+            container.innerHTML = `<div class="text-slate-500 italic">Nessun evento registrato per ${sym}. Premi "Avvia Trading su questo Titolo" per iniziare.</div>`;
+          } else {
+            container.innerHTML = logs.map(l => {
+              const color = l.level === 'SUCCESS' ? 'text-emerald-400' :
+                            l.level === 'WARNING' ? 'text-amber-400' :
+                            l.level === 'ERROR' ? 'text-rose-400' : 'text-slate-300';
+              const time = l.created_at ? l.created_at.split(' ')[1] || l.created_at : '';
+              return `<div class="leading-relaxed"><span class="text-slate-600">[${time}]</span> <span class="font-bold ${color}">[${l.level}]</span> ${l.message}</div>`;
+            }).join('');
+
+            if (autoScroll) {
+              container.scrollTop = container.scrollHeight;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Errore recupero log bot', e);
       }
     }
 
@@ -964,7 +1094,15 @@
       box.innerText = message;
     }
 
-    document.addEventListener('DOMContentLoaded', loadInitialStatus);
+    document.addEventListener('DOMContentLoaded', () => {
+      loadInitialStatus();
+      onSymbolChange();
+      // Polling periodico ogni 5 secondi per log e status bot
+      setInterval(() => {
+        updateSymbolBotStatus();
+        fetchBotLogs();
+      }, 5000);
+    });
   </script>
 </body>
 </html>

@@ -12,7 +12,7 @@
 | **Fase 5** | Risk Manager e Validazioni | ✅ Completata | Validazione pre-avvio: verifica strategia scalping recente, budget $5000 trade, buying power e portafoglio reale |
 | **Fase 6** | Order Executor | 🔲 Non avviata | Esecuzione ordini IBKR con bracket SL/TP |
 | **Fase 7** | Integrazione tradeBotNotify | 🔲 Non avviata | Webhook porta 9008 per notifiche Telegram |
-| **Fase 8** | Orchestratore e Scheduler | 🔲 Non avviata | APScheduler 30s loop |
+| **Fase 8** | Orchestratore e Scheduler | ✅ Completata | MultiBotEngine parallelo per simbolo, cicli background, log SQLite |
 | **Fase 9** | Containerizzazione e Deploy | 🔲 Non avviata | Podman container produzione |
 | **Fase 10** | Testing e Ottimizzazione | 🔲 Non avviata | Paper trading e validazione completa |
 
