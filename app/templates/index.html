@@ -394,21 +394,39 @@
             <i class="fa-solid fa-brain text-lg"></i>
           </div>
           <div>
-            <h2 class="text-lg font-semibold text-white">Simulazione Scelta di Trade con Gemini</h2>
-            <p class="text-xs text-slate-400">Comunica in tempo reale con il modello selezionato per validare la decisione strategica su XAUUSD</p>
+            <h2 class="text-lg font-semibold text-white">Analisi XAUUSD & Strategia di Scalping</h2>
+            <p class="text-xs text-slate-400">Analizza trend storico 30 giorni, focus 7 giorni, indicatori tecnici e definisce la strategia operativa prima dell'avvio</p>
           </div>
         </div>
 
         <button onclick="simulateTradeAnalysis()" id="btnSimulateTrade" class="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-sky-500/25">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Simula Analisi AI su XAUUSD
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza XAUUSD & Genera Strategia
         </button>
       </div>
 
       <!-- Output Decisione AI -->
       <div id="aiDecisionContainer" class="hidden space-y-4">
+        <!-- Badge Contesto 30d e 7d -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-line text-sky-400"></i> Trend Macro Ultimi 30 Giorni
+            </span>
+            <div id="aiTrend30dVal" class="text-sm font-semibold text-slate-200 mt-1">-</div>
+            <div id="aiRange30dVal" class="text-xs font-mono text-slate-400 mt-0.5">-</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-calendar-week text-emerald-400"></i> Focus Ultima Settimana (7 Giorni)
+            </span>
+            <div id="aiTrend7dVal" class="text-sm font-semibold text-slate-200 mt-1">-</div>
+            <div id="aiRange7dVal" class="text-xs font-mono text-slate-400 mt-0.5">-</div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Azione Suggerita</span>
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Azione Strategica</span>
             <div id="aiActionVal" class="text-2xl font-black mt-1">HOLD</div>
           </div>
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
@@ -416,12 +434,14 @@
             <div id="aiConfidenceVal" class="text-2xl font-black text-sky-400 mt-1">0%</div>
           </div>
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Sentiment Mercato</span>
-            <div id="aiSentimentVal" class="text-2xl font-black text-slate-200 mt-1">NEUTRAL</div>
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Sentiment & Setup</span>
+            <div id="aiSentimentVal" class="text-base font-bold text-slate-200 mt-1">NEUTRAL</div>
+            <div id="aiSetupVal" class="text-xs text-slate-400 truncate mt-0.5">Scalping Setup</div>
           </div>
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Stop Loss / Take Profit</span>
-            <div id="aiLevelsVal" class="text-sm font-mono text-slate-300 mt-2">SL: - | TP: -</div>
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Livelli Operativi</span>
+            <div id="aiLevelsVal" class="text-xs font-mono text-slate-300 mt-1">SL: - | TP: -</div>
+            <div id="aiSizeVal" class="text-xs font-mono text-emerald-400 mt-0.5">Size: - oz</div>
           </div>
         </div>
 
@@ -648,23 +668,48 @@
 
         document.getElementById('aiConfidenceVal').innerText = `${Math.round((data.confidence || 0) * 100)}%`;
         document.getElementById('aiSentimentVal').innerText = data.market_sentiment || 'NEUTRAL';
+        document.getElementById('aiSetupVal').innerText = data.scalping_setup || 'Scalping Setup';
         document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
+        document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size_oz || 1} oz`;
         document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
+
+        if (data.historical_context) {
+          const hc = data.historical_context;
+          document.getElementById('aiTrend30dVal').innerText = `${hc.trend_30d || '-'} (${hc.change_pct_30d > 0 ? '+' : ''}${hc.change_pct_30d}%)`;
+          document.getElementById('aiRange30dVal').innerText = `Range 30d: $${hc.range_30d ? hc.range_30d[0] : '-'} - $${hc.range_30d ? hc.range_30d[1] : '-'}`;
+
+          document.getElementById('aiTrend7dVal').innerText = `${hc.trend_7d || '-'} (${hc.change_pct_7d > 0 ? '+' : ''}${hc.change_pct_7d}%)`;
+          document.getElementById('aiRange7dVal').innerText = `Range 7d: $${hc.range_7d ? hc.range_7d[0] : '-'} - $${hc.range_7d ? hc.range_7d[1] : '-'} | RSI: ${hc.rsi}`;
+        }
+
         document.getElementById('rawAiJson').innerText = JSON.stringify(data, null, 2);
 
       } catch (e) {
-        alert('Errore chiamata simulazione: ' + e.message);
+        alert('Errore chiamata analisi: ' + e.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Simula Analisi AI su XAUUSD';
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Analizza XAUUSD & Genera Strategia';
       }
     }
 
     async function toggleBot(enable) {
       const endpoint = enable ? '/bot/start' : '/bot/stop';
-      const res = await fetch(endpoint, { method: 'POST' });
-      if (res.ok) {
-        updateBotBadge(enable);
+      try {
+        const res = await fetch(endpoint, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          updateBotBadge(enable);
+          if (enable) {
+            showResultBox(true, `TRADING AUTOMATICO AVVIATO!\nStrategia verificata: ${data.active_strategy ? data.active_strategy.action + ' - ' + data.active_strategy.scalping_setup : 'Attiva'}\nConto ID: ${data.account ? data.account.account_id : ''} | Buying Power: $${data.account ? data.account.buying_power.toLocaleString() : ''}`);
+          } else {
+            showResultBox(true, 'Trading automatico disabilitato. Le posizioni aperte sono mantenute.');
+          }
+        } else {
+          showResultBox(false, `AVVIO BLOCCATO: ${data.detail || 'Impossibile avviare il trading automatico'}`);
+          alert(`AVVIO BLOCCATO:\n${data.detail || 'Verifica la strategia e il portafoglio prima di avviare il bot.'}`);
+        }
+      } catch (e) {
+        showResultBox(false, `Errore operazione bot: ${e.message}`);
       }
     }
 

@@ -141,8 +141,14 @@ class Database:
 
     # --- Runtime Config ---
 
+    async def _ensure_connected(self) -> None:
+        """Verifica che la connessione sia attiva, altrimenti la inizializza automaticamente."""
+        if self._conn is None:
+            await self.connect()
+
     async def set_config(self, key: str, value: Any) -> None:
         """Salva un valore di configurazione (serializzato in JSON)."""
+        await self._ensure_connected()
         val_str = json.dumps(value)
         query = """
             INSERT INTO runtime_config (key, value, updated_at)
@@ -155,6 +161,7 @@ class Database:
 
     async def get_config(self, key: str, default: Any = None) -> Any:
         """Recupera un valore di configurazione."""
+        await self._ensure_connected()
         assert self._conn is not None
         async with self._conn.execute(
             "SELECT value FROM runtime_config WHERE key = ?", (key,)
@@ -261,6 +268,7 @@ class Database:
         rejection_reason: Optional[str] = None,
     ) -> int:
         """Registra una decisione presa dal motore AI."""
+        await self._ensure_connected()
         query = """
             INSERT INTO ai_decisions (
                 symbol, action, confidence, reasoning, market_sentiment,

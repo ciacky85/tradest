@@ -69,6 +69,11 @@ class IBKRClient:
             self.account_id = account_id.strip()
 
     @property
+    def ib_instance(self) -> Any:
+        """Restituisce l'istanza ib_insync IB sottostante."""
+        return self._ib
+
+    @property
     def is_connected(self) -> bool:
         """Indica se il client è attualmente connesso a IBKR Gateway/TWS."""
         if self._ib is not None:

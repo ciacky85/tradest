@@ -291,84 +291,30 @@ async def test_gemini() -> dict[str, Any]:
 
 @app.post(
     "/api/gemini/simulate-trade",
-    summary="Simula analisi strategica con Gemini su XAUUSD",
+    summary="Analizza XAUUSD (30 giorni + 7 giorni) e definisce la strategia di scalping",
     tags=["Google Gemini"],
 )
 async def simulate_trade() -> dict[str, Any]:
     """
-    Esegue una richiesta completa di analisi a Gemini con dati di mercato simulati
-    per verificare che il modello comunichi correttamente le scelte di trade.
+    Analizza l'andamento di XAUUSD negli ultimi 30 giorni e nell'ultima settimana,
+    calcola gli indicatori tecnici, verifica il portafoglio reale e genera la strategia
+    operativa di scalping con l'AI.
     """
     client = get_gemini_client()
     if not client.api_key:
         return {
-            "error": "Google Gemini API Key non configurata. Inseriscila nelle impostazioni della dashboard."
+            "error": "Chiave API AI non configurata. Inseriscila nelle impostazioni della dashboard."
         }
 
-    prompts = load_ai_prompts()
-    ma_prompt = prompts["prompts"]["market_analysis"]
-    sys_instruction = ma_prompt["system_instruction"]
-    template = ma_prompt["analysis_template"]
-
-    # Dati simulati di contesto XAUUSD
-    filled_prompt = template.format(
-        symbol="XAUUSD",
-        current_price=2654.80,
-        bid=2654.60,
-        ask=2655.00,
-        spread=0.40,
-        volume=14200.0,
-        daily_change_pct=+0.65,
-        rsi=58.4,
-        ema_fast=2652.10,
-        ema_slow=2648.50,
-        macd=1.85,
-        macd_signal=1.20,
-        macd_hist=0.65,
-        atr=3.40,
-        bb_upper=2660.00,
-        bb_middle=2651.00,
-        bb_lower=2642.00,
-        open_positions="Nessuna posizione aperta al momento.",
-        recent_trades="Ultimi 3 trade: +$18.50, +$14.20, -$8.00 (Win rate 66%)",
-        daily_pnl=+24.70,
-        trades_today=3,
-        win_rate_today=66.7,
-        max_budget=5000.0,
-        stop_loss_pct=0.005,
-        take_profit_pct=0.01,
-        allowed_direction="both",
-        max_position_size=2.0,
-    )
-
     try:
-        response = await client.generate_trade_analysis(
-            prompt=filled_prompt,
-            system_instruction=sys_instruction,
-        )
+        from strategy.scalping_strategy import get_scalping_manager
 
-        # Registra la simulazione nel DB SQLite per storico decisioni
-        db = get_db()
-        await db.record_ai_decision(
-            symbol="XAUUSD",
-            action=response.get("action", "HOLD"),
-            confidence=float(response.get("confidence", 0.0)),
-            reasoning=response.get("reasoning", ""),
-            market_sentiment=response.get("market_sentiment", "NEUTRAL"),
-            entry_price=response.get("entry_price"),
-            stop_loss=response.get("stop_loss"),
-            take_profit=response.get("take_profit"),
-            position_size_oz=response.get("position_size_oz", 0.0),
-            urgency=response.get("urgency", "LOW"),
-            risk_reward_ratio=response.get("risk_reward_ratio", 0.0),
-            executed=False,
-            rejection_reason="Simulazione manuale da Web Dashboard",
-        )
-
-        return response
+        manager = get_scalping_manager()
+        strategy = await manager.analyze_and_generate_strategy()
+        return strategy
     except Exception as e:
-        logger.error("Errore simulazione trade con Gemini", error=str(e))
-        return {"error": str(e)}
+        logger.error("Errore analisi e generazione strategia XAUUSD", exc=str(e))
+        return {"error": f"Errore durante l'analisi: {str(e)}"}
 
 
 # ---------------------------------------------------------------------------
@@ -642,17 +588,36 @@ async def get_ai_decisions(limit: int = 20) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 @app.post(
     "/bot/start",
-    summary="Avvia il bot di trading",
+    summary="Avvia il bot di trading con validazione strategia e portafoglio",
     tags=["Controllo Bot"],
 )
-async def start_bot() -> dict[str, str]:
-    """Abilita il trading automatico."""
+async def start_bot() -> dict[str, Any]:
+    """
+    Abilita il trading automatico verificando prima che sia stata
+    definita una strategia di scalping recente e conforme ai limiti di budget e portafoglio.
+    """
+    from strategy.scalping_strategy import get_scalping_manager
+
+    manager = get_scalping_manager()
+    readiness = await manager.validate_auto_trading_readiness()
+
+    if not readiness["can_start"]:
+        raise HTTPException(
+            status_code=400,
+            detail=readiness.get("reason", "Impossibile avviare il trading automatico"),
+        )
+
     cfg = get_settings()
     cfg.trading_enabled = True
     db = get_db()
     await db.set_config("trading_enabled", True)
-    logger.info("Bot avviato manualmente dall'utente")
-    return {"status": "started", "trading_enabled": "true"}
+    logger.info("Bot avviato con successo dopo verifica strategia e portafoglio")
+    return {
+        "status": "started",
+        "trading_enabled": True,
+        "active_strategy": readiness.get("strategy"),
+        "account": readiness.get("account"),
+    }
 
 
 @app.post(
