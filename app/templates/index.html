@@ -388,20 +388,45 @@
 
     <!-- Sezione: Test Comunicazione Scelte di Trade con Gemini -->
     <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
-      <div class="flex flex-wrap items-center justify-between border-b border-slate-700/60 pb-4 gap-2">
+      <div class="flex flex-wrap items-center justify-between border-b border-slate-700/60 pb-4 gap-4">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
             <i class="fa-solid fa-brain text-lg"></i>
           </div>
           <div>
-            <h2 class="text-lg font-semibold text-white">Analisi XAUUSD & Strategia di Scalping</h2>
-            <p class="text-xs text-slate-400">Analizza trend storico 30 giorni, focus 7 giorni, indicatori tecnici e definisce la strategia operativa prima dell'avvio</p>
+            <h2 class="text-lg font-semibold text-white">Analisi Tecnica & Strategia di Scalping Multi-Asset</h2>
+            <p class="text-xs text-slate-400">Seleziona lo strumento, definisci il budget e genera la strategia di scalping prima dell'avvio</p>
           </div>
         </div>
 
-        <button onclick="simulateTradeAnalysis()" id="btnSimulateTrade" class="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-sky-500/25">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza XAUUSD & Genera Strategia
-        </button>
+        <!-- Selettore Simbolo e Budget di Trading Personalizzato -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-400 font-semibold uppercase mb-1">Titolo / Strumento</label>
+            <select id="tradeSymbolSelect" onchange="onSymbolChange()" class="input-field px-3 py-1.5 rounded-xl text-sm font-semibold">
+              <option value="XAUUSD">XAUUSD (Oro Spot CFD)</option>
+              <option value="NVDA">NVDA (NVIDIA Corp)</option>
+              <option value="SPCX">SPCX (CrossingBridge SPAC ETF)</option>
+              <option value="IB1T">IB1T (iShares Treasury ETF)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-slate-400 font-semibold uppercase mb-1 flex items-center justify-between">
+              <span>Budget Max Trade</span>
+              <span id="budgetSavedBadge" class="text-[10px] text-emerald-400 hidden font-mono">Salvato</span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-slate-400 text-xs">$</span>
+              <input type="number" id="tradeBudgetInput" value="5000" step="500" min="500"
+                class="input-field pl-7 pr-3 py-1.5 rounded-xl text-sm font-mono w-28 font-bold" />
+            </div>
+          </div>
+
+          <button onclick="simulateTradeAnalysis()" id="btnSimulateTrade" class="mt-4 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-sky-500/25">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza & Genera Strategia
+          </button>
+        </div>
       </div>
 
       <!-- Output Decisione AI -->
@@ -657,18 +682,50 @@
       }
     }
 
+    async function onSymbolChange() {
+      const sym = document.getElementById('tradeSymbolSelect').value;
+      try {
+        const res = await fetch('/api/symbols/budget');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.symbols_budget && data.symbols_budget[sym]) {
+            document.getElementById('tradeBudgetInput').value = data.symbols_budget[sym];
+          } else {
+            document.getElementById('tradeBudgetInput').value = 5000;
+          }
+        }
+      } catch (e) {
+        console.error('Errore recupero budget per simbolo', e);
+      }
+    }
+
     async function simulateTradeAnalysis() {
       const btn = document.getElementById('btnSimulateTrade');
+      const sym = document.getElementById('tradeSymbolSelect').value;
+      const budget = parseFloat(document.getElementById('tradeBudgetInput').value) || 5000;
+
       btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analisi in corso...';
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analisi ${sym} in corso...`;
 
       try {
-        const res = await fetch('/api/gemini/simulate-trade', { method: 'POST' });
+        const res = await fetch('/api/gemini/simulate-trade', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            symbol: sym,
+            budget: budget
+          })
+        });
         const data = await res.json();
         if (data.error) {
           alert('Errore: ' + data.error);
           return;
         }
+
+        // Mostra badge salvataggio budget
+        const bBadge = document.getElementById('budgetSavedBadge');
+        bBadge.classList.remove('hidden');
+        setTimeout(() => bBadge.classList.add('hidden'), 3000);
 
         const container = document.getElementById('aiDecisionContainer');
         container.classList.remove('hidden');
@@ -719,8 +776,13 @@
 
     async function toggleBot(enable) {
       const endpoint = enable ? '/bot/start' : '/bot/stop';
+      const sym = document.getElementById('tradeSymbolSelect') ? document.getElementById('tradeSymbolSelect').value : 'XAUUSD';
       try {
-        const res = await fetch(endpoint, { method: 'POST' });
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym })
+        });
         const data = await res.json();
         if (res.ok) {
           updateBotBadge(enable);

@@ -289,16 +289,21 @@ async def test_gemini() -> dict[str, Any]:
     return result
 
 
+class AnalysisRequest(BaseModel):
+    symbol: Optional[str] = "XAUUSD"
+    budget: Optional[float] = None
+
+
 @app.post(
     "/api/gemini/simulate-trade",
-    summary="Analizza XAUUSD (30 giorni + 7 giorni) e definisce la strategia di scalping",
+    summary="Analizza il titolo selezionato (30gg/7gg) e definisce la strategia di scalping",
     tags=["Google Gemini"],
 )
-async def simulate_trade() -> dict[str, Any]:
+async def simulate_trade(req: Optional[AnalysisRequest] = None) -> dict[str, Any]:
     """
-    Analizza l'andamento di XAUUSD negli ultimi 30 giorni e nell'ultima settimana,
-    calcola gli indicatori tecnici, verifica il portafoglio reale e genera la strategia
-    operativa di scalping con l'AI.
+    Analizza l'andamento del titolo selezionato (XAUUSD, NVDA, SPCX, IB1T, ecc.) negli ultimi 30 giorni
+    e nell'ultima settimana, calcola gli indicatori tecnici, verifica il portafoglio reale e la saturazione
+    del budget (quote intere, divieto di acquisto se già a budget) e genera la strategia con l'AI.
     """
     client = get_gemini_client()
     if not client.api_key:
@@ -306,15 +311,46 @@ async def simulate_trade() -> dict[str, Any]:
             "error": "Chiave API AI non configurata. Inseriscila nelle impostazioni della dashboard."
         }
 
+    sym = (req.symbol if req and req.symbol else "XAUUSD").upper().strip()
+    custom_budget = req.budget if req and req.budget and req.budget > 0 else None
+
     try:
         from strategy.scalping_strategy import get_scalping_manager
 
         manager = get_scalping_manager()
-        strategy = await manager.analyze_and_generate_strategy()
+        strategy = await manager.analyze_and_generate_strategy(symbol=sym, custom_budget=custom_budget)
         return strategy
     except Exception as e:
-        logger.error("Errore analisi e generazione strategia XAUUSD", exc=str(e))
+        logger.error(f"Errore analisi e generazione strategia per {sym}", exc=str(e))
         return {"error": f"Errore durante l'analisi: {str(e)}"}
+
+
+@app.get(
+    "/api/symbols/budget",
+    summary="Recupera i budget salvati per i titoli",
+    tags=["Parametri Trading"],
+)
+async def get_symbols_budget() -> dict[str, Any]:
+    """Restituisce la mappa dei budget impostati per ciascun titolo."""
+    db = get_db()
+    custom_budgets = await db.get_config("symbols_budget", {})
+    return {"symbols_budget": custom_budgets}
+
+
+@app.post(
+    "/api/symbols/budget",
+    summary="Salva il budget per un titolo",
+    tags=["Parametri Trading"],
+)
+async def save_symbol_budget(req: dict[str, Any]) -> dict[str, Any]:
+    """Aggiorna e rende persistente il budget allocato per un titolo."""
+    sym = str(req.get("symbol", "XAUUSD")).upper().strip()
+    budget = float(req.get("budget", 5000.0))
+    from strategy.scalping_strategy import get_scalping_manager
+
+    manager = get_scalping_manager()
+    await manager.set_symbol_budget(sym, budget)
+    return {"status": "saved", "symbol": sym, "budget": budget}
 
 
 # ---------------------------------------------------------------------------
@@ -586,25 +622,30 @@ async def get_ai_decisions(limit: int = 20) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Endpoint Controllo Bot
 # ---------------------------------------------------------------------------
+class BotStartRequest(BaseModel):
+    symbol: Optional[str] = "XAUUSD"
+
+
 @app.post(
     "/bot/start",
-    summary="Avvia il bot di trading con validazione strategia e portafoglio",
+    summary="Avvia il bot di trading con validazione strategia e portafoglio per il titolo",
     tags=["Controllo Bot"],
 )
-async def start_bot() -> dict[str, Any]:
+async def start_bot(req: Optional[BotStartRequest] = None) -> dict[str, Any]:
     """
     Abilita il trading automatico verificando prima che sia stata
-    definita una strategia di scalping recente e conforme ai limiti di budget e portafoglio.
+    definita una strategia di scalping recente e conforme ai limiti di budget e portafoglio per il titolo.
     """
+    sym = (req.symbol if req and req.symbol else "XAUUSD").upper().strip()
     from strategy.scalping_strategy import get_scalping_manager
 
     manager = get_scalping_manager()
-    readiness = await manager.validate_auto_trading_readiness()
+    readiness = await manager.validate_auto_trading_readiness(symbol=sym)
 
     if not readiness["can_start"]:
         raise HTTPException(
             status_code=400,
-            detail=readiness.get("reason", "Impossibile avviare il trading automatico"),
+            detail=readiness.get("reason", f"Impossibile avviare il trading automatico su {sym}"),
         )
 
     cfg = get_settings()

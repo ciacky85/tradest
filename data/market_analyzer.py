@@ -1,11 +1,12 @@
 """
-data/market_analyzer.py - Analizzatore di mercato e indicatori tecnici per XAUUSD.
+data/market_analyzer.py - Analizzatore di mercato e indicatori tecnici multisimbolo per IBKR.
 
-Funzionalità:
-- Estrazione barre storiche da Interactive Brokers (30 giorni giornalieri e 7 giorni orari).
-- Calcolo trend e range (minimi, massimi, variazione percentuale, supporti e resistenze).
-- Calcolo matematico nativo senza dipendenze pesanti per indicatori (RSI, EMA 9/21, MACD, Bollinger Bands, ATR).
-- Fallback euristico realistico in caso di broker offline.
+Supporta:
+- XAUUSD (CFD oro spot)
+- Azioni ed ETF (es. NVDA, SPCX, IB1T)
+- Calcolo trend a 30 giorni (candele 1 giorno) e 7 giorni (candele 1 ora)
+- Indicatori tecnici: RSI 14, EMA 9/21, MACD, ATR 14, Bollinger Bands
+- Supporti e resistenze locali
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from app.config import load_symbols_config
 from integration.ibkr_client import get_ibkr_client
 from utils.logger import get_logger
 
@@ -43,6 +45,7 @@ class MarketHistoricalContext:
     spread: float
     volume: float
     daily_change_pct: float
+    unit: str
     # Trend 30 giorni
     trend_30d: str
     low_30d: float
@@ -61,24 +64,37 @@ class MarketHistoricalContext:
 
 
 class MarketAnalyzer:
-    """Analizzatore di mercato asincrono per XAUUSD (oro spot CFD)."""
+    """Analizzatore di mercato asincrono per XAUUSD, Azioni ed ETF."""
 
     def __init__(self) -> None:
         self.ib_client = get_ibkr_client()
 
-    async def get_xauusd_analysis(self) -> MarketHistoricalContext:
+    async def get_symbol_analysis(self, symbol: str = "XAUUSD") -> MarketHistoricalContext:
         """
-        Estrae l'analisi completa di XAUUSD:
+        Estrae l'analisi completa per il simbolo richiesto:
         - 30 giorni (candele 1 giorno) per trend macro
         - 7 giorni (candele 1 ora) per struttura settimanale
         - Dati correnti e calcolo indicatori tecnici
         """
+        sym = symbol.upper().strip()
+        symbols_cfg = load_symbols_config().get("symbols", {})
+        sym_info = symbols_cfg.get(sym, {})
+        sec_type = sym_info.get("ib_sec_type", "CFD" if sym == "XAUUSD" else "STK")
+        exchange = sym_info.get("ib_exchange", "SMART")
+        currency = sym_info.get("ib_currency", "USD")
+        unit = sym_info.get("unit", "oz" if sym == "XAUUSD" else "shares")
+
         ib = self.ib_client.ib_instance
         if ib is not None and ib.isConnected():
             try:
-                from ib_insync import CFD
+                from ib_insync import CFD, Contract, Stock
 
-                contract = CFD("XAUUSD", "SMART", "USD")
+                if sec_type == "CFD":
+                    contract = CFD(sym, exchange, currency)
+                elif sec_type == "STK":
+                    contract = Stock(sym, exchange, currency)
+                else:
+                    contract = Contract(symbol=sym, secType=sec_type, exchange=exchange, currency=currency)
 
                 # 1. Barre a 30 giorni giornaliere
                 bars_30d = await ib.reqHistoricalDataAsync(
@@ -86,7 +102,7 @@ class MarketAnalyzer:
                     endDateTime="",
                     durationStr="30 D",
                     barSizeSetting="1 day",
-                    whatToShow="MIDPOINT",
+                    whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
                     useRTH=True,
                 )
 
@@ -96,20 +112,20 @@ class MarketAnalyzer:
                     endDateTime="",
                     durationStr="7 D",
                     barSizeSetting="1 hour",
-                    whatToShow="MIDPOINT",
+                    whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
                     useRTH=False,
                 )
 
                 if bars_30d and bars_7d:
-                    return self._process_bars(bars_30d, bars_7d)
+                    return self._process_bars(sym, unit, bars_30d, bars_7d)
             except Exception as e:
-                logger.warning("Errore recupero barre IBKR, utilizzo modello analitico integrato", exc=str(e))
+                logger.warning(f"Errore recupero barre IBKR per {sym}, fallback euristico", exc=str(e))
 
-        # Fallback analitico coerente
-        return self._generate_fallback_context()
+        # Fallback coerente
+        return self._generate_fallback_context(sym, unit)
 
-    def _process_bars(self, bars_30d: list[Any], bars_7d: list[Any]) -> MarketHistoricalContext:
-        """Elabora le barre storiche con calcolo matematico puro nativo."""
+    def _process_bars(self, symbol: str, unit: str, bars_30d: list[Any], bars_7d: list[Any]) -> MarketHistoricalContext:
+        """Elabora le barre storiche calcolando metriche e indicatori."""
         closes_30d = [float(b.close) for b in bars_30d]
         lows_30d = [float(b.low) for b in bars_30d]
         highs_30d = [float(b.high) for b in bars_30d]
@@ -120,7 +136,7 @@ class MarketAnalyzer:
         volumes_7d = [float(getattr(b, "volume", 0) or 100) for b in bars_7d]
 
         current_price = round(closes_7d[-1], 2)
-        spread = 0.35
+        spread = 0.35 if symbol == "XAUUSD" else 0.05
         bid = round(current_price - spread / 2, 2)
         ask = round(current_price + spread / 2, 2)
 
@@ -138,24 +154,14 @@ class MarketAnalyzer:
         change_pct_7d = round(((current_price - first_7d) / first_7d) * 100, 2)
         trend_7d = "RIALZISTA FORTE" if change_pct_7d > 1.5 else ("RIBASSISTA" if change_pct_7d < -1.0 else "RANGE CONSOLIDAMENTO")
 
-        # Supporti e resistenze (minimi e massimi locali ordinati)
         supports = sorted(list(set([round(x, 1) for x in sorted(lows_7d)[:3]])))
         resistances = sorted(list(set([round(x, 1) for x in sorted(highs_7d, reverse=True)[:3]])))
 
-        # EMA 9 & EMA 21
         ema_fast = self._calc_ema(closes_7d, 9)
         ema_slow = self._calc_ema(closes_7d, 21)
-
-        # RSI 14
         rsi_val = self._calc_rsi(closes_7d, 14)
-
-        # MACD (12, 26, 9)
         macd_val, signal_val, hist_val = self._calc_macd(closes_7d)
-
-        # ATR 14
         atr_val = self._calc_atr(highs_7d, lows_7d, closes_7d, 14)
-
-        # Bollinger Bands (20, 2.0)
         bb_upper, bb_mid, bb_lower = self._calc_bollinger(closes_7d, 20, 2.0)
 
         indicators = TechnicalIndicators(
@@ -174,13 +180,14 @@ class MarketAnalyzer:
         daily_change_pct = round(((current_price - closes_30d[-2]) / closes_30d[-2]) * 100, 2) if len(closes_30d) > 1 else 0.45
 
         return MarketHistoricalContext(
-            symbol="XAUUSD",
+            symbol=symbol,
             current_price=current_price,
             bid=bid,
             ask=ask,
             spread=spread,
             volume=round(volumes_7d[-1], 1),
             daily_change_pct=daily_change_pct,
+            unit=unit,
             trend_30d=trend_30d,
             low_30d=low_30d,
             high_30d=high_30d,
@@ -196,7 +203,6 @@ class MarketAnalyzer:
 
     @staticmethod
     def _calc_ema(series: list[float], span: int) -> float:
-        """Calcola l'ultimo valore EMA con formula ponderata."""
         if not series:
             return 0.0
         alpha = 2 / (span + 1)
@@ -207,7 +213,6 @@ class MarketAnalyzer:
 
     @staticmethod
     def _calc_rsi(series: list[float], period: int = 14) -> float:
-        """Calcola l'RSI classico Wilder su serie prezzi."""
         if len(series) < period + 1:
             return 50.0
         gains: list[float] = []
@@ -231,10 +236,8 @@ class MarketAnalyzer:
 
     @staticmethod
     def _calc_macd(series: list[float]) -> tuple[float, float, float]:
-        """Calcola MACD (12, 26), Signal (9) e Istogramma."""
         if len(series) < 35:
             return (0.0, 0.0, 0.0)
-        # Serie completa MACD line
         alpha_fast = 2 / 13
         alpha_slow = 2 / 27
         ema_fast_val = series[0]
@@ -246,7 +249,6 @@ class MarketAnalyzer:
             ema_slow_val = alpha_slow * val + (1 - alpha_slow) * ema_slow_val
             macd_series.append(ema_fast_val - ema_slow_val)
 
-        # Signal line su macd_series
         alpha_sig = 2 / 10
         sig_val = macd_series[0]
         for val in macd_series:
@@ -258,7 +260,6 @@ class MarketAnalyzer:
 
     @staticmethod
     def _calc_atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> float:
-        """Calcola Average True Range."""
         if len(closes) < period + 1:
             return 4.0
         trs: list[float] = []
@@ -269,7 +270,6 @@ class MarketAnalyzer:
 
     @staticmethod
     def _calc_bollinger(series: list[float], period: int = 20, mult: float = 2.0) -> tuple[float, float, float]:
-        """Calcola Bollinger Bands (Upper, Middle, Lower)."""
         if len(series) < period:
             mid = series[-1] if series else 0.0
             return (mid + 5.0, mid, mid - 5.0)
@@ -279,37 +279,46 @@ class MarketAnalyzer:
         std = math.sqrt(variance)
         return (mid + (std * mult), mid, mid - (std * mult))
 
-    def _generate_fallback_context(self) -> MarketHistoricalContext:
-        """Genera contesto realistico stimato dell'oro se IBKR è offline."""
+    def _generate_fallback_context(self, symbol: str, unit: str) -> MarketHistoricalContext:
+        """Contesto realistico in fallback se IBKR è offline."""
+        defaults = {
+            "XAUUSD": {"price": 4157.60, "range30": (3980.0, 4220.0), "range7": (4120.0, 4190.0), "atr": 18.5},
+            "NVDA": {"price": 218.10, "range30": (195.0, 245.0), "range7": (212.0, 226.0), "atr": 4.2},
+            "SPCX": {"price": 148.48, "range30": (142.0, 175.0), "range7": (145.0, 155.0), "atr": 1.8},
+            "IB1T": {"price": 7.22, "range30": (7.05, 7.65), "range7": (7.18, 7.30), "atr": 0.08},
+        }
+        info = defaults.get(symbol, {"price": 100.0, "range30": (90.0, 110.0), "range7": (95.0, 105.0), "atr": 2.0})
+        p = info["price"]
         return MarketHistoricalContext(
-            symbol="XAUUSD",
-            current_price=2684.50,
-            bid=2684.30,
-            ask=2684.70,
-            spread=0.40,
-            volume=18400.0,
-            daily_change_pct=+0.58,
-            trend_30d="RIALZISTA MODERATO (+3.4% negli ultimi 30 giorni)",
-            low_30d=2595.00,
-            high_30d=2692.50,
-            change_pct_30d=+3.45,
-            trend_7d="CONSOLIDAMENTO ATTIVO (Range 2665 - 2690)",
-            low_7d=2665.20,
-            high_7d=2691.80,
-            change_pct_7d=+0.85,
-            supports=[2665.0, 2672.5, 2680.0],
-            resistances=[2688.0, 2692.5, 2700.0],
+            symbol=symbol,
+            current_price=p,
+            bid=round(p - 0.2, 2),
+            ask=round(p + 0.2, 2),
+            spread=0.4,
+            volume=15000.0,
+            daily_change_pct=+0.45,
+            unit=unit,
+            trend_30d="RIALZISTA MODERATO (+3.2% negli ultimi 30 giorni)",
+            low_30d=info["range30"][0],
+            high_30d=info["range30"][1],
+            change_pct_30d=+3.2,
+            trend_7d="CONSOLIDAMENTO ATTIVO (Range di oscillazione recente)",
+            low_7d=info["range7"][0],
+            high_7d=info["range7"][1],
+            change_pct_7d=+0.75,
+            supports=[info["range7"][0], round(p * 0.99, 2)],
+            resistances=[info["range7"][1], round(p * 1.01, 2)],
             indicators=TechnicalIndicators(
-                rsi=56.8,
-                ema_fast=2682.40,
-                ema_slow=2678.10,
-                macd=1.65,
-                macd_signal=1.20,
-                macd_hist=0.45,
-                atr=4.20,
-                bb_upper=2693.00,
-                bb_middle=2681.50,
-                bb_lower=2670.00,
+                rsi=55.5,
+                ema_fast=round(p * 1.002, 2),
+                ema_slow=round(p * 0.998, 2),
+                macd=1.2,
+                macd_signal=0.9,
+                macd_hist=0.3,
+                atr=info["atr"],
+                bb_upper=round(p * 1.015, 2),
+                bb_middle=p,
+                bb_lower=round(p * 0.985, 2),
             ),
         )
 

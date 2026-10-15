@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Configurazione simboli tradabili",
   "symbols": {
     "XAUUSD": {
@@ -8,31 +8,69 @@
       "ib_exchange": "SMART",
       "ib_sec_type": "CFD",
       "ib_currency": "USD",
-      "description": "Gold Spot vs US Dollar",
+      "description": "Gold Spot (Oro)",
       "asset_class": "commodity",
       "pip_size": 0.01,
       "tick_size": 0.01,
       "contract_size": 1.0,
       "unit": "oz",
+      "allow_fractional": false,
       "margin_requirement_pct": 5.0,
       "enabled": true,
-      "priority": 1,
-      "data_feed": {
-        "bar_size": "1 min",
-        "history_days": 5,
-        "stream_realtime": true,
-        "market_data_type": "REALTIME"
-      },
-      "session": {
-        "pre_market": "06:00",
-        "market_open": "08:00",
-        "market_close": "22:00",
-        "post_market": "23:00",
-        "timezone": "Europe/Rome",
-        "trading_days": ["MON", "TUE", "WED", "THU", "FRI"]
-      }
+      "priority": 1
+    },
+    "NVDA": {
+      "symbol": "NVDA",
+      "ib_symbol": "NVDA",
+      "ib_exchange": "SMART",
+      "ib_sec_type": "STK",
+      "ib_currency": "USD",
+      "description": "NVIDIA Corp",
+      "asset_class": "stock",
+      "pip_size": 0.01,
+      "tick_size": 0.01,
+      "contract_size": 1.0,
+      "unit": "shares",
+      "allow_fractional": false,
+      "margin_requirement_pct": 25.0,
+      "enabled": true,
+      "priority": 2
+    },
+    "SPCX": {
+      "symbol": "SPCX",
+      "ib_symbol": "SPCX",
+      "ib_exchange": "SMART",
+      "ib_sec_type": "STK",
+      "ib_currency": "USD",
+      "description": "CrossingBridge Pre-Merger SPAC ETF",
+      "asset_class": "etf",
+      "pip_size": 0.01,
+      "tick_size": 0.01,
+      "contract_size": 1.0,
+      "unit": "shares",
+      "allow_fractional": false,
+      "margin_requirement_pct": 25.0,
+      "enabled": true,
+      "priority": 3
+    },
+    "IB1T": {
+      "symbol": "IB1T",
+      "ib_symbol": "IB1T",
+      "ib_exchange": "IBIS2",
+      "ib_sec_type": "STK",
+      "ib_currency": "EUR",
+      "description": "iShares $ Treasury Bond 0-1yr UCITS ETF",
+      "asset_class": "etf",
+      "pip_size": 0.01,
+      "tick_size": 0.01,
+      "contract_size": 1.0,
+      "unit": "shares",
+      "allow_fractional": false,
+      "margin_requirement_pct": 20.0,
+      "enabled": true,
+      "priority": 4
     }
   },
   "default_symbol": "XAUUSD",
-  "watchlist": ["XAUUSD"]
+  "watchlist": ["XAUUSD", "NVDA", "SPCX", "IB1T"]
 }

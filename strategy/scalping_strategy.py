@@ -1,29 +1,25 @@
 """
-strategy/scalping_strategy.py - Gestore strategico di scalping su XAUUSD e controllo esecutivo del bot.
+strategy/scalping_strategy.py - Gestore strategico di scalping multirisorsa con controllo budget e quote intere.
 
-Caratteristiche:
-- Priorità assoluta al Portafoglio IBKR reale:
-  1. Connessione / Sincronizzazione con Interactive Brokers
-  2. Verifica specifica della posizione esistente su XAUUSD (quantità, direzione, P&L, prezzo di carico)
-  3. Controllo della disponibilità di buying power e rispetto del budget massimo per trade ($5,000)
-- Analisi approfondita di mercato XAUUSD:
-  * Trend macro 30 giorni e range
-  * Focus ultima settimana (7 giorni)
-  * Indicatori tecnici (EMA 9, EMA 21, RSI 14, MACD, ATR 14, Bollinger Bands) e pivot supporti/resistenze
-- Compilazione sicura del prompt compatibile sia con marcatori {var} che {{var}}
-- Interrogazione del motore AI (Omniroute / Gemini)
-- Memorizzazione della strategia in SQLite e validazione per trading automatico.
+Regole operative fondamentali:
+1. Controllo Quote Intere (No frazioni):
+   - Interactive Brokers non accetta frazioni di contratto/oncia. La size calcolata viene sempre arrotondata per difetto all'intero: math.floor(budget / current_price).
+2. Priorità al Portafoglio Esistente & Limite di Budget:
+   - Se il portafoglio possiede già una posizione sul titolo (es. 1 oz @ $4157) che copre o satura il budget stabilito (es. budget $5000):
+     * È TASSATIVAMENTE VIETATO effettuare ulteriori acquisti (NO BUY).
+     * L'AI può solo gestire la posizione esistente (HOLD) o chiuderla/alleggerirla (SELL / CLOSE).
+   - Se la posizione viene chiusa/venduta, il budget viene liberato ed espanso, consentendo alla successiva analisi di decidere se rientrare (in LONG oppure SHORT) sfruttando il capitale libero.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.config import get_settings, load_ai_prompts, load_trading_params
-from app.models import AITradeStrategy, TradeAction
 from data.database import get_db
 from data.market_analyzer import MarketHistoricalContext, get_market_analyzer
 from integration.gemini_client import get_gemini_client
@@ -34,78 +30,132 @@ logger = get_logger("scalping_strategy")
 
 
 class ScalpingStrategyManager:
-    """Orchestratore della strategia di scalping su XAUUSD."""
+    """Orchestratore della strategia di scalping con vincoli di portafoglio e budget."""
 
     def __init__(self) -> None:
         self.market_analyzer = get_market_analyzer()
         self.ai_client = get_gemini_client()
         self.ib_client = get_ibkr_client()
 
-    async def analyze_and_generate_strategy(self) -> dict[str, Any]:
+    async def get_symbol_budget(self, symbol: str) -> float:
+        """Recupera il budget allocato per il simbolo (da SQLite runtime o da configurazione)."""
+        db = get_db()
+        custom_budgets = await db.get_config("symbols_budget", {})
+        if symbol.upper() in custom_budgets:
+            return float(custom_budgets[symbol.upper()])
+
+        # Fallback da trading_params.json
+        t_params = load_trading_params()
+        asset_cfg = t_params.get("assets", {}).get(symbol.upper(), {})
+        return float(asset_cfg.get("risk_management", {}).get("max_budget_per_trade_usd", 5000.0))
+
+    async def set_symbol_budget(self, symbol: str, budget: float) -> None:
+        """Salva il budget personalizzato per un simbolo in SQLite."""
+        db = get_db()
+        custom_budgets = await db.get_config("symbols_budget", {})
+        custom_budgets[symbol.upper()] = float(budget)
+        await db.set_config("symbols_budget", custom_budgets)
+
+    async def analyze_and_generate_strategy(
+        self,
+        symbol: str = "XAUUSD",
+        custom_budget: Optional[float] = None,
+    ) -> dict[str, Any]:
         """
-        Flusso Operativo:
-        1. IMPORTAZIONE PREVENTIVA PORTAFOGLIO IBKR:
-           - Sincronizza il conto e rileva l'eventuale posizione esistente su XAUUSD
-        2. ANALISI TECNICA & STORICA XAUUSD (30 giorni e 7 giorni con indicatori reali)
-        3. GENERAZIONE STRATEGIA AI SCALPING basata su posizione esistente e condizioni attuali
-        4. SALVATAGGIO della strategia attiva in DB come prerequisito per l'avvio del bot
+        Esegue l'analisi completa per il simbolo scelto tenendo conto del budget e del portafoglio reale.
         """
-        # --- PASSO 1: Sincronizzazione preventiva Portafoglio IBKR ---
+        sym = symbol.upper().strip()
+
+        # 1. Recupera o salva il budget per il simbolo
+        if custom_budget is not None and custom_budget > 0:
+            await self.set_symbol_budget(sym, custom_budget)
+            target_budget = float(custom_budget)
+        else:
+            target_budget = await self.get_symbol_budget(sym)
+
+        # 2. Sincronizzazione preventiva Portafoglio IBKR
         try:
             if not self.ib_client.is_connected:
                 await self.ib_client.connect(timeout=5.0)
         except Exception as e:
-            logger.warning("Tentativo di connessione automatica a IBKR Gateway fallito", exc=str(e))
+            logger.warning("Connessione preventiva a IBKR non disponibile", exc=str(e))
 
         portfolio = await self.ib_client.get_portfolio()
         acc = portfolio.account
 
-        # Isola e analizza la posizione specifica su XAUUSD
-        xauusd_pos = None
+        # 3. Controllo della posizione esistente per il simbolo
+        existing_pos = None
         for p in portfolio.positions:
-            if p.symbol.upper() in ("XAUUSD", "GOLD"):
-                xauusd_pos = p
+            if p.symbol.upper() == sym or (sym == "XAUUSD" and p.symbol.upper() in ("XAUUSD", "GOLD")):
+                existing_pos = p
                 break
 
-        if xauusd_pos:
-            dir_str = getattr(xauusd_pos.direction, "value", str(xauusd_pos.direction)).upper()
-            xauusd_pos_str = (
-                f"ATTUALMENTE APERTA: {dir_str} {xauusd_pos.quantity} oz @ ${xauusd_pos.entry_price:.2f} "
-                f"(Valore Mercato: ${xauusd_pos.market_value:.2f}, P&L Non Realizzato: ${xauusd_pos.unrealized_pnl:+.2f})"
+        existing_qty = float(existing_pos.quantity) if existing_pos else 0.0
+        existing_value = float(existing_pos.market_value) if existing_pos else 0.0
+        existing_pnl = float(existing_pos.unrealized_pnl) if existing_pos else 0.0
+
+        if existing_pos:
+            dir_str = getattr(existing_pos.direction, "value", str(existing_pos.direction)).upper()
+            pos_desc = (
+                f"ATTUALMENTE APERTA: {dir_str} {existing_qty} pz/oz @ ${existing_pos.entry_price:.2f} "
+                f"(Valore Mercato: ${existing_value:,.2f}, P&L Non Realizzato: ${existing_pnl:+.2f})"
             )
         else:
-            xauusd_pos_str = "NESSUNA POSIZIONE APERTA su XAUUSD al momento (Esposizione 0.0 oz)."
+            pos_desc = f"NESSUNA POSIZIONE APERTA su {sym} (Esposizione 0)."
 
-        other_positions = [
-            f"{p.symbol} {getattr(p.direction, 'value', str(p.direction)).upper()} {p.quantity} pz (P&L: ${p.unrealized_pnl:+.2f})"
-            for p in portfolio.positions
-            if p.symbol.upper() not in ("XAUUSD", "GOLD")
-        ]
-        open_pos_str = f"Posizione XAUUSD: {xauusd_pos_str} | Altri titoli: " + (", ".join(other_positions) if other_positions else "Nessuno")
+        # 4. Analisi di Mercato (30 giorni, 7 giorni e indicatori tecnici)
+        mkt: MarketHistoricalContext = await self.market_analyzer.get_symbol_analysis(sym)
+        current_price = mkt.current_price
 
-        # --- PASSO 2: Analisi Dati di Mercato & Trend Storico ---
-        mkt: MarketHistoricalContext = await self.market_analyzer.get_xauusd_analysis()
+        # 5. Calcolo Quote Intere (No frazioni) e Capienza Budget
+        # Es. Se prezzo = $4100 e budget = $5000 -> max_shares_in_budget = 1
+        max_shares_in_budget = math.floor(target_budget / current_price) if current_price > 0 else 0
 
-        # --- PASSO 3: Parametri di Trading e Limiti di Rischio ---
-        t_params = load_trading_params()
-        asset_cfg = t_params.get("assets", {}).get("XAUUSD", {})
-        risk_cfg = asset_cfg.get("risk_management", {})
+        # Verifica se la posizione esistente già copre o satura il budget
+        # Se già abbiamo quote >= max_shares_in_budget, il budget per nuovi acquisti è esaurito!
+        budget_saturated = False
+        remaining_budget = max(0.0, target_budget - existing_value)
+        shares_can_buy = math.floor(remaining_budget / current_price) if current_price > 0 else 0
 
-        max_budget = risk_cfg.get("max_budget_per_trade_usd", 5000.0)
-        max_size_oz = risk_cfg.get("max_position_size_oz", 2.0)
-        stop_loss_pct = risk_cfg.get("stop_loss_pct", 0.005) * 100
-        take_profit_pct = risk_cfg.get("take_profit_pct", 0.01) * 100
-        allowed_direction = asset_cfg.get("trading", {}).get("direction", "both")
+        if existing_value >= target_budget or shares_can_buy <= 0:
+            budget_saturated = True
 
-        # --- PASSO 4: Compilazione Robusta del Prompt ---
+        # Direttiva per l'AI
+        if existing_pos and budget_saturated:
+            ai_budget_directive = (
+                f"ATTENZIONE: Il portafoglio possiede già una posizione su {sym} ({existing_qty} {mkt.unit} per un valore di ${existing_value:,.2f}) "
+                f"che SODDISFA O SUPERA IL BUDGET DEFINITO (${target_budget:,.2f}). "
+                f"È ASSOLUTAMENTE VIETATO consigliare l'azione 'BUY' per ulteriori acquisti. "
+                f"Puoi consigliare SOLO: 'HOLD' per mantenere la posizione esistente, oppure 'SELL' / 'CLOSE' per chiuderla/liquidarla in profitto o stop loss. "
+                f"Se consiglierai 'SELL', il budget verrà liberato e consentirà in seguito di rientrare (in LONG o SHORT)."
+            )
+        elif existing_pos and not budget_saturated:
+            ai_budget_directive = (
+                f"Il portafoglio ha una posizione su {sym} di {existing_qty} {mkt.unit} (${existing_value:,.2f}). "
+                f"Il budget residuo consente al massimo di acquistare altri {shares_can_buy} {mkt.unit} interi (quote frazionate NON ammesse da IBKR). "
+                f"Valuta se fare BUY (max {shares_can_buy}), HOLD o SELL."
+            )
+        else:
+            if max_shares_in_budget <= 0:
+                ai_budget_directive = (
+                    f"Il budget impostato (${target_budget:,.2f}) è inferiore al prezzo di 1 singola quota intera (${current_price:,.2f}). "
+                    f"Non è possibile acquistare quote intere. Consiglia HOLD."
+                )
+            else:
+                ai_budget_directive = (
+                    f"Nessuna posizione aperta su {sym}. Con un budget di ${target_budget:,.2f} e prezzo corrente di ${current_price:,.2f}, "
+                    f"la quantità intera acquistabile è esattamente di {max_shares_in_budget} {mkt.unit} (arrotondato per difetto, no frazioni). "
+                    f"Valuta se entrare con BUY, SELL (se short consentito) o attendere in HOLD."
+                )
+
+        # 6. Compilazione Prompt
         prompts = load_ai_prompts()
         ma_prompt = prompts.get("prompts", {}).get("market_analysis", {})
         sys_instruction = ma_prompt.get("system_instruction", "")
         template = ma_prompt.get("analysis_template", "")
 
-        # Mappatura completa di tutti i valori (sia a parentesi singola che doppia)
         context_vars = {
-            "symbol": "XAUUSD",
+            "symbol": sym,
             "trend_30d": str(mkt.trend_30d),
             "low_30d": f"{mkt.low_30d:.2f}",
             "high_30d": f"{mkt.high_30d:.2f}",
@@ -135,71 +185,98 @@ class ScalpingStrategyManager:
             "portfolio_total_value": f"{acc.total_value:,.2f}",
             "portfolio_cash": f"{acc.cash_balance:,.2f}",
             "portfolio_buying_power": f"{acc.buying_power:,.2f}",
-            "open_positions": open_pos_str,
-            "recent_trades": "Ultimi trade di scalping monitorati sul conto",
+            "open_positions": pos_desc,
+            "recent_trades": "Operatività scalping sincronizzata su IBKR",
             "daily_pnl": f"{portfolio.daily_pnl:+.2f}",
             "trades_today": "0",
             "win_rate_today": "0.0",
-            "max_budget": f"{max_budget:,.2f}",
-            "max_position_size": f"{max_size_oz}",
-            "stop_loss_pct": f"{stop_loss_pct}",
-            "take_profit_pct": f"{take_profit_pct}",
-            "allowed_direction": allowed_direction,
+            "max_budget": f"{target_budget:,.2f}",
+            "max_position_size": str(max(1, max_shares_in_budget)),
+            "stop_loss_pct": "0.5",
+            "take_profit_pct": "1.0",
+            "allowed_direction": "both",
         }
 
-        # Applica sostituzioni sia per {{var}} che per {var} per massima compatibilità con qualsiasi file di prompt esterno
         filled_prompt = template
         for key, val in context_vars.items():
             filled_prompt = filled_prompt.replace(f"{{{{{key}}}}}", str(val))
             filled_prompt = filled_prompt.replace(f"{{{key}}}", str(val))
 
-        # Aggiunta esplicita della sezione di portafoglio dettagliata per l'AI
+        # Aggiunta istruzioni di vincolo budget e portafoglio all'AI
         filled_prompt += f"""
 
-## POSIZIONE ESISTENTE SU XAUUSD NEL PORTAFOGLIO IBKR:
-- Stato attuale XAUUSD: {xauusd_pos_str}
-- Buying Power disponibile: ${acc.buying_power:,.2f}
-- Liquidità: ${acc.cash_balance:,.2f}
-- Budget massimo consentito per questa operazione: ${max_budget:,.2f}
-- NOTA STRATEGICA: Se è già presente una posizione aperta su XAUUSD, valuta se mantenerla (HOLD), incrementarla o chiuderla (CLOSE) in base alla strategia di scalping.
+## VINCOLI DI PORTAFOGLIO & GESTIONE BUDGET (TASSATIVI):
+- Posizione su {sym}: {pos_desc}
+- Budget totale allocato per {sym}: ${target_budget:,.2f}
+- Valore posizione esistente: ${existing_value:,.2f}
+- Prezzo corrente quota: ${current_price:,.2f}
+- Quantità massima intera consentita dal budget: {max_shares_in_budget} {mkt.unit}
+- DIRETTIVA RIGIDA: {ai_budget_directive}
+- NOTA INTERI: Su IBKR le quantità DEVONO ESSERE INTERE (1, 2, 3... quote). Mai indicare numeri frazionari (es. 1.5, 0.8).
 """
 
-        # --- PASSO 5: Interrogazione Motore AI ---
+        # 7. Interrogazione AI
         ai_result = await self.ai_client.generate_trade_analysis(
             prompt=filled_prompt,
             system_instruction=sys_instruction,
         )
 
-        # --- PASSO 6: Validazione & Normalizzazione della Decisione ---
-        action_str = str(ai_result.get("action", "HOLD")).upper()
-        confidence = float(ai_result.get("confidence", 0.5))
-        reasoning = ai_result.get("reasoning", "Analisi di scalping completata")
-        entry_price = float(ai_result.get("entry_price") or mkt.current_price)
-        stop_loss = float(ai_result.get("stop_loss") or (round(entry_price * 0.995, 2) if action_str == "BUY" else round(entry_price * 1.005, 2)))
-        take_profit = float(ai_result.get("take_profit") or (round(entry_price * 1.01, 2) if action_str == "BUY" else round(entry_price * 0.99, 2)))
-        pos_size = float(ai_result.get("position_size_oz") or 1.0)
-        pos_size = min(pos_size, max_size_oz)
+        # 8. Sanificazione dell'Azione (Guardia di Rischio sul Budget)
+        raw_action = str(ai_result.get("action", "HOLD")).upper()
+        # Se il portafoglio ha già saturato il budget e l'AI propone BUY, forziamo HOLD
+        if budget_saturated and existing_pos and raw_action == "BUY":
+            logger.warning(
+                f"Guardia di rischio attivata: {sym} ha già saturato il budget (${existing_value:,.2f} >= ${target_budget:,.2f}). Azione BUY forzata a HOLD."
+            )
+            raw_action = "HOLD"
+            reasoning = (
+                f"Budget di ${target_budget:,.2f} già completamente allocato sulla posizione esistente ({existing_qty} {mkt.unit} @ ${existing_pos.entry_price:.2f}). "
+                f"Nessun ulteriore acquisto consentito. Mantenimento (HOLD) in attesa di target profit o stop loss."
+            )
+        else:
+            reasoning = ai_result.get("reasoning", "Analisi completata con successo")
+
+        # Size intera
+        suggested_size = ai_result.get("position_size_oz") or ai_result.get("position_size") or max_shares_in_budget
+        try:
+            integer_size = max(1, math.floor(float(suggested_size)))
+        except Exception:
+            integer_size = max(1, max_shares_in_budget)
+
+        if not existing_pos and max_shares_in_budget > 0:
+            integer_size = min(integer_size, max_shares_in_budget)
+        elif existing_pos:
+            integer_size = int(existing_qty) if raw_action in ("SELL", "CLOSE", "HOLD") else max(1, shares_can_buy)
+
+        entry_price = float(ai_result.get("entry_price") or current_price)
+        stop_loss = float(ai_result.get("stop_loss") or (round(entry_price * 0.995, 2) if raw_action == "BUY" else round(entry_price * 1.005, 2)))
+        take_profit = float(ai_result.get("take_profit") or (round(entry_price * 1.01, 2) if raw_action == "BUY" else round(entry_price * 0.99, 2)))
 
         strategy_payload = {
-            "symbol": "XAUUSD",
-            "action": action_str,
-            "confidence": confidence,
+            "symbol": sym,
+            "action": raw_action,
+            "confidence": float(ai_result.get("confidence", 0.75)),
             "reasoning": reasoning,
-            "scalping_setup": ai_result.get("scalping_setup", "Scalping su trend e livelli di supporto/resistenza"),
+            "scalping_setup": ai_result.get("scalping_setup", "Gestione strategica budget e livelli tecnici"),
             "entry_price": entry_price,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
-            "position_size_oz": pos_size,
+            "position_size": integer_size,
+            "position_size_oz": integer_size,
+            "unit": mkt.unit,
+            "budget": target_budget,
+            "budget_saturated": budget_saturated,
             "urgency": ai_result.get("urgency", "MEDIUM"),
             "market_sentiment": ai_result.get("market_sentiment", "NEUTRAL"),
             "risk_reward_ratio": float(ai_result.get("risk_reward_ratio", 2.0)),
             "estimated_hold_time_minutes": int(ai_result.get("estimated_hold_time_minutes", 15)),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "existing_position": {
-                "has_position": bool(xauusd_pos),
-                "details": xauusd_pos_str,
-                "quantity": float(xauusd_pos.quantity) if xauusd_pos else 0.0,
-                "unrealized_pnl": float(xauusd_pos.unrealized_pnl) if xauusd_pos else 0.0,
+                "has_position": bool(existing_pos),
+                "details": pos_desc,
+                "quantity": existing_qty,
+                "market_value": existing_value,
+                "unrealized_pnl": existing_pnl,
             },
             "historical_context": {
                 "trend_30d": mkt.trend_30d,
@@ -219,48 +296,44 @@ class ScalpingStrategyManager:
                 "total_value": acc.total_value,
                 "cash": acc.cash_balance,
                 "buying_power": acc.buying_power,
-                "budget_per_trade": max_budget,
+                "budget_per_trade": target_budget,
             },
         }
 
-        # --- PASSO 7: Registrazione nel DB SQLite ---
+        # 9. Salvataggio in SQLite
         db = get_db()
+        await db.set_config(f"active_strategy_{sym}", strategy_payload)
         await db.set_config("active_scalping_strategy", strategy_payload)
         await db.record_ai_decision(
-            symbol="XAUUSD",
-            action=action_str,
-            confidence=confidence,
+            symbol=sym,
+            action=raw_action,
+            confidence=strategy_payload["confidence"],
             reasoning=reasoning,
             market_sentiment=strategy_payload["market_sentiment"],
             entry_price=entry_price,
             stop_loss=stop_loss,
             take_profit=take_profit,
-            position_size_oz=pos_size,
+            position_size_oz=float(integer_size),
             urgency=strategy_payload["urgency"],
             risk_reward_ratio=strategy_payload["risk_reward_ratio"],
             executed=0,
-            rejection_reason="Analisi e definizione strategia completata",
+            rejection_reason="Definizione strategia multirisorsa completata",
         )
 
         return strategy_payload
 
-    async def validate_auto_trading_readiness(self) -> dict[str, Any]:
-        """
-        Verifica se il trading automatico può essere avviato:
-        - Controllo presenza di strategia valida recente (< 4 ore)
-        - Verifica portafoglio reale e disponibilità di fondi
-        - Rispetto del budget massimo stabilito
-        """
+    async def validate_auto_trading_readiness(self, symbol: str = "XAUUSD") -> dict[str, Any]:
+        """Verifica le condizioni per l'avvio del trading automatico sul titolo."""
+        sym = symbol.upper().strip()
         db = get_db()
-        active_strategy = await db.get_config("active_scalping_strategy")
+        active_strategy = await db.get_config(f"active_strategy_{sym}") or await db.get_config("active_scalping_strategy")
 
-        if not active_strategy:
+        if not active_strategy or active_strategy.get("symbol") != sym:
             return {
                 "can_start": False,
-                "reason": "Nessuna strategia definita. Esegui prima l'analisi di mercato per XAUUSD.",
+                "reason": f"Nessuna strategia definita per {sym}. Esegui prima l'analisi.",
             }
 
-        # Verifica timestamp strategia (massimo 4 ore)
         created_at_str = active_strategy.get("timestamp")
         if created_at_str:
             try:
@@ -269,22 +342,20 @@ class ScalpingStrategyManager:
                 if delta_minutes > 240:
                     return {
                         "can_start": False,
-                        "reason": f"La strategia definita è obsoleta ({int(delta_minutes)} min fa). Riavvia l'analisi prima di avviare il bot.",
+                        "reason": f"La strategia per {sym} è obsoleta ({int(delta_minutes)} min fa). Riavvia l'analisi.",
                     }
             except Exception:
                 pass
 
-        # Verifica portafoglio
         portfolio = await self.ib_client.get_portfolio()
-        t_params = load_trading_params()
-        asset_cfg = t_params.get("assets", {}).get("XAUUSD", {})
-        risk_cfg = asset_cfg.get("risk_management", {})
-        max_budget = risk_cfg.get("max_budget_per_trade_usd", 5000.0)
+        target_budget = await self.get_symbol_budget(sym)
 
-        if portfolio.account.buying_power < max_budget and portfolio.account.cash_balance < 1000:
+        # Se il portafoglio non ha già posizione e buying power < budget
+        has_pos = any(p.symbol.upper() == sym for p in portfolio.positions)
+        if not has_pos and portfolio.account.buying_power < target_budget and portfolio.account.cash_balance < 1000:
             return {
                 "can_start": False,
-                "reason": f"Buying power insufficiente (${portfolio.account.buying_power:,.2f}) per il budget richiesto (${max_budget:,.2f}).",
+                "reason": f"Buying power insufficiente (${portfolio.account.buying_power:,.2f}) per il budget di {sym} (${target_budget:,.2f}).",
             }
 
         return {

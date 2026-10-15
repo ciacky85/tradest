@@ -1,17 +1,18 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.2.1`
+- **Versione Corrente:** `1.3.0`
 - **Data:** 2026-10-15
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
 - **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
 - **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`, Client ID 500, Account verificato: `DUR222070`)
 - **Portainer Stack:** Porta `18881` esposta, volume esterno `/srv/docker_conf/configs/tradest_conf`
-- **Web Dashboard:** Dashboard Web attiva su `/` con verifica preventiva del portafoglio IBKR e posizione XAUUSD, analisi storica e compilazione affidabile dei segnaposto
+- **Web Dashboard:** Dashboard Web attiva su `/` con selezione multirisorsa (XAUUSD, NVDA, SPCX, IB1T), budget personalizzabile e salvabile, gestione quote intere e vincolo di saturazione budget da portafoglio
 
 ## Note Operative
-1. **Versione 1.2.1:** Risolto definitivamente il problema dei segnaposto non valorizzati (supportati sia `{var}` che `{{var}}` e forzato auto-sync di `ai_prompts.json` su modifiche). Implementata l'importazione preventiva del portafoglio IBKR (`DUR222070`) con isolamento e valutazione specifica della posizione aperta su XAUUSD prima di elaborare la strategia di scalping. Aggiornata la Web Dashboard con box dedicato per lo stato della posizione reale su XAUUSD.
+1. **Versione 1.3.0:** Supporto completo alla selezione dinamica dello strumento finanziario (XAUUSD, NVDA, SPCX, IB1T) e configurazione/salvataggio del budget dedicato per titolo in SQLite (`symbols_budget`). Implementata logica tassativa di gestione del budget e quote intere (no frazioni): se il portafoglio soddisfa o supera già il budget allocato per il titolo, è rigorosamente vietato acquistare (forzatura a HOLD o SELL/CLOSE per liquidare). Quando una posizione viene chiusa o ridotta, il budget liberato consente all'AI di rientrare (in direzione LONG o SHORT).
+2. **Versione 1.2.1:** Risolto definitivamente il problema dei segnaposto non valorizzati (supportati sia `{var}` che `{{var}}` e forzato auto-sync di `ai_prompts.json` su modifiche). Implementata l'importazione preventiva del portafoglio IBKR (`DUR222070`) con isolamento e valutazione specifica della posizione aperta su XAUUSD prima di elaborare la strategia di scalping.
 2. **Versione 1.2.0:** Implementato modulo [`MarketAnalyzer`](data/market_analyzer.py:59) (estrazione barre storiche 30 giorni e 7 giorni da IBKR, calcolo EMA, RSI, MACD, ATR, Bollinger, range e supporti/resistenze) e modulo [`ScalpingStrategyManager`](strategy/scalping_strategy.py:32). Integrata validazione pre-avvio del trading automatico.
 2. **Versione 1.1.0:** Configurato token Omniroute dedicato `sk-92fbd7ff0bd42a7d-82e301-62dbdb1f` verificato con successo su `http://192.168.1.212:9292/v1` (modello `carlo-gemini` e `gemini-3.8-flash-tiered`). Aggiornata UI per evitare sovrascritture accidentali della chiave.
 2. **Versione 1.0.9:** Supporto nativo al gateway Omniroute / Antigravity su `http://192.168.1.212:9292/v1` con modelli `carlo-gemini`, `antigravity/gemini-3.8-flash-tiered`, ecc. Risolto definitivamente il problema delle quote 429! Credenziali IBKR precompilate di default su `lhungq693` / `secretpaper`.
