@@ -50,7 +50,7 @@ logger = get_logger("app.main")
 class GeminiConfigRequest(BaseModel):
     provider: Optional[str] = "omniroute"  # 'omniroute' oppure 'google'
     base_url: Optional[str] = "http://192.168.1.212:9292/v1"
-    api_key: Optional[str] = None
+    api_key: Optional[str] = "sk-92fbd7ff0bd42a7d-82e301-62dbdb1f"
     model: Optional[str] = "carlo-gemini"
     temperature: Optional[float] = 0.2
 
@@ -200,10 +200,13 @@ async def get_gemini_config() -> dict[str, Any]:
     client = get_gemini_client()
     key = client.api_key
     masked = (key[:6] + "..." + key[-4:]) if len(key) > 10 else ("***" if key else "")
+    # Se il provider è omniroute e la chiave corrisponde a quella di default o è impostata,
+    # restituiamo la chiave non mascherata o un flag per evitare che l'utente salvi per sbaglio una stringa mascherata
     return {
         "provider": client.provider,
         "base_url": client.base_url,
         "has_api_key": bool(key),
+        "api_key": key if client.provider == "omniroute" else "",
         "api_key_masked": masked,
         "model": client.model or cfg.gemini_model,
         "temperature": cfg.gemini_temperature,
@@ -233,13 +236,15 @@ async def save_gemini_config(req: GeminiConfigRequest) -> dict[str, Any]:
 
     if req.api_key and req.api_key.strip():
         clean_key = req.api_key.strip()
-        client.set_api_key(clean_key)
-        if client.provider == "omniroute":
-            cfg.ai_api_key = clean_key
-            await db.set_config("ai_api_key", clean_key)
-        else:
-            cfg.gemini_api_key = clean_key
-            await db.set_config("gemini_api_key", clean_key)
+        # Ignora se l'utente invia accidentalmente la stringa mascherata
+        if "..." not in clean_key and clean_key != "***":
+            client.set_api_key(clean_key)
+            if client.provider == "omniroute":
+                cfg.ai_api_key = clean_key
+                await db.set_config("ai_api_key", clean_key)
+            else:
+                cfg.gemini_api_key = clean_key
+                await db.set_config("gemini_api_key", clean_key)
 
     if req.model and req.model.strip():
         clean_model = req.model.strip()

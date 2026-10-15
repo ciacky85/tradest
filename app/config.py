@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     # --- Google Gemini AI & Omniroute / Antigravity Gateway ---
     ai_provider: Literal["omniroute", "google"] = "omniroute"
     ai_base_url: str = "http://192.168.1.212:9292/v1"
-    ai_api_key: str = "sk-92fbd7ff0bd42a7d-69ee29-81742676"
+    ai_api_key: str = "sk-92fbd7ff0bd42a7d-82e301-62dbdb1f"
     gemini_api_key: str = ""
     gemini_model: str = "carlo-gemini"
     gemini_max_tokens: int = 4096

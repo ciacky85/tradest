@@ -458,7 +458,7 @@
           }
           if (cfg.has_api_key) {
             if (cfg.provider === 'omniroute') {
-              document.getElementById('geminiApiKeyInput').value = 'sk-92fbd7ff0bd42a7d-69ee29-81742676';
+              document.getElementById('geminiApiKeyInput').value = cfg.api_key || 'sk-92fbd7ff0bd42a7d-82e301-62dbdb1f';
             } else {
               document.getElementById('geminiApiKeyInput').value = cfg.api_key_masked || '';
             }
@@ -525,8 +525,8 @@
       if (prov === 'omniroute') {
         baseUrlInput.value = 'http://192.168.1.212:9292/v1';
         baseUrlInput.disabled = false;
-        if (!keyInput.value || keyInput.value.startsWith('AIza')) {
-          keyInput.value = 'sk-92fbd7ff0bd42a7d-69ee29-81742676';
+        if (!keyInput.value || keyInput.value.startsWith('AIza') || keyInput.value.includes('...')) {
+          keyInput.value = 'sk-92fbd7ff0bd42a7d-82e301-62dbdb1f';
         }
         badge.innerText = 'Omniroute Gateway (Zero 429)';
         badge.className = 'text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold';
