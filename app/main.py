@@ -656,15 +656,18 @@ class BotControlRequest(BaseModel):
 )
 async def start_bot(req: Optional[BotControlRequest] = None) -> dict[str, Any]:
     """
-    Abilita il trading automatico in background per il singolo titolo,
-    verificando la disponibilità di budget e strategia valida.
+    Abilita il trading automatico in background per il singolo titolo.
+    Sequenza garantita prima dell'avvio:
+    1. Refresh e verifica del portafoglio IBKR reale
+    2. Nuova analisi AI e di mercato fresca e contestualizzata
+    3. Avvio effettivo del task di trading automatico
     """
     sym = (req.symbol if req and req.symbol else "XAUUSD").upper().strip()
     from strategy.scalping_strategy import get_scalping_manager
     from strategy.bot_engine import get_bot_engine
 
     manager = get_scalping_manager()
-    readiness = await manager.validate_auto_trading_readiness(symbol=sym)
+    readiness = await manager.validate_auto_trading_readiness(symbol=sym, force_fresh_analysis=True)
 
     if not readiness["can_start"]:
         raise HTTPException(
@@ -686,6 +689,7 @@ async def start_bot(req: Optional[BotControlRequest] = None) -> dict[str, Any]:
         "is_active": True,
         "active_strategy": readiness.get("strategy"),
         "account": readiness.get("account"),
+        "portfolio": readiness.get("portfolio"),
     }
 
 
@@ -731,6 +735,21 @@ async def get_bot_logs(symbol: Optional[str] = None, limit: int = 100) -> dict[s
     db = get_db()
     logs = await db.get_bot_logs(symbol=symbol, limit=limit)
     return {"symbol": symbol, "logs": logs, "count": len(logs)}
+
+
+@app.get(
+    "/bot/operations",
+    summary="Recupera le operazioni svolte effettivamente (LONG / SHORT)",
+    tags=["Controllo Bot"],
+)
+async def get_bot_operations(symbol: Optional[str] = None, limit: int = 50) -> dict[str, Any]:
+    """
+    Restituisce le sole operazioni effettivamente svolte dal bot (BUY/SELL/LONG/SHORT),
+    ordinate cronologicamente con data/ora e tutti i dettagli esecutivi (SL, TP, PnL, Prezzo, Quantità).
+    """
+    db = get_db()
+    ops = await db.get_executed_operations(symbol=symbol, limit=limit)
+    return {"symbol": symbol, "operations": ops, "count": len(ops)}
 
 
 @app.post(

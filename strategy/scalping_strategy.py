@@ -322,36 +322,40 @@ class ScalpingStrategyManager:
 
         return strategy_payload
 
-    async def validate_auto_trading_readiness(self, symbol: str = "XAUUSD") -> dict[str, Any]:
-        """Verifica le condizioni per l'avvio del trading automatico sul titolo."""
+    async def validate_auto_trading_readiness(
+        self,
+        symbol: str = "XAUUSD",
+        force_fresh_analysis: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Sequenza obbligatoria pre-avvio del bot:
+        1. Carica il portafoglio IBKR reale e aggiornato per verificare posizioni, liquidità e buying power.
+        2. Esegue una NUOVA analisi AI fresca con snapshot di mercato in tempo reale (mai partire su dati obsoleti).
+        3. Verifica i vincoli di budget e capienza prima di autorizzare l'avvio.
+        """
         sym = symbol.upper().strip()
         db = get_db()
-        active_strategy = await db.get_config(f"active_strategy_{sym}") or await db.get_config("active_scalping_strategy")
+
+        # 1. Carica portafoglio reale IBKR aggiornato
+        logger.info(f"Fase 1 Pre-Avvio Bot {sym}: caricamento portafoglio reale IBKR...")
+        portfolio = await self.ib_client.get_portfolio()
+        target_budget = await self.get_symbol_budget(sym)
+
+        # 2. Lancia nuova analisi fresca di mercato e AI se richiesta (default True)
+        if force_fresh_analysis:
+            logger.info(f"Fase 2 Pre-Avvio Bot {sym}: esecuzione nuova analisi AI in tempo reale...")
+            active_strategy = await self.analyze_and_generate_strategy(symbol=sym)
+        else:
+            active_strategy = await db.get_config(f"active_strategy_{sym}") or await db.get_config("active_scalping_strategy")
 
         if not active_strategy or active_strategy.get("symbol") != sym:
             return {
                 "can_start": False,
-                "reason": f"Nessuna strategia definita per {sym}. Esegui prima l'analisi.",
+                "reason": f"Impossibile definire una nuova strategia aggiornata per {sym}.",
             }
 
-        created_at_str = active_strategy.get("timestamp")
-        if created_at_str:
-            try:
-                created_at = datetime.fromisoformat(created_at_str)
-                delta_minutes = (datetime.now(timezone.utc) - created_at).total_seconds() / 60
-                if delta_minutes > 240:
-                    return {
-                        "can_start": False,
-                        "reason": f"La strategia per {sym} è obsoleta ({int(delta_minutes)} min fa). Riavvia l'analisi.",
-                    }
-            except Exception:
-                pass
-
-        portfolio = await self.ib_client.get_portfolio()
-        target_budget = await self.get_symbol_budget(sym)
-
-        # Se il portafoglio non ha già posizione e buying power < budget
-        has_pos = any(p.symbol.upper() == sym for p in portfolio.positions)
+        # 3. Verifica capienza del buying power
+        has_pos = any(p.symbol.upper() == sym or (sym == "XAUUSD" and p.symbol.upper() in ("XAUUSD", "GOLD")) for p in portfolio.positions)
         if not has_pos and portfolio.account.buying_power < target_budget and portfolio.account.cash_balance < 1000:
             return {
                 "can_start": False,
@@ -361,6 +365,7 @@ class ScalpingStrategyManager:
         return {
             "can_start": True,
             "strategy": active_strategy,
+            "portfolio": portfolio.model_dump(),
             "account": {
                 "account_id": portfolio.account.account_id,
                 "cash": portfolio.account.cash_balance,

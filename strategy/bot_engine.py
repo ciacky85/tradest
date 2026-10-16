@@ -170,16 +170,54 @@ class MultiBotEngine:
                                 message=f"Ordine BUY inibito per rispetto del budget. La posizione esistente copre già il budget di ${budget:,.2f}.",
                             )
                         else:
+                            op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"
+                            sl = strategy.get("stop_loss")
+                            tp = strategy.get("take_profit")
+                            unit = strategy.get("unit", "pz")
+                            await self.db.record_executed_operation(
+                                operation_id=op_id,
+                                symbol=sym,
+                                operation_type="LONG",
+                                action="BUY",
+                                quantity=float(size),
+                                price=float(current_price),
+                                stop_loss=float(sl) if sl else None,
+                                take_profit=float(tp) if tp else None,
+                                pnl=0.0,
+                                status="EXECUTED",
+                                details=f"Ingresso LONG scalping su {sym} ({size} {unit}). Setup: {setup}. Motivo: {reasoning[:120]}...",
+                            )
                             await self.db.log_bot_event(
                                 symbol=sym,
                                 level="SUCCESS",
-                                message=f"Segnale operativo BUY generato per {size} {strategy.get('unit')} @ ~${current_price:.2f}. SL: ${strategy.get('stop_loss')} | TP: ${strategy.get('take_profit')}.",
+                                message=f"Operazione svolta: LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. SL: ${sl} | TP: ${tp}.",
+                                metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size},
                             )
                     elif action in ("SELL", "CLOSE"):
+                        op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"
+                        op_type = "CLOSE_LONG" if (existing_pos and existing_pos.direction.value.upper() == "LONG") else "SHORT"
+                        sl = strategy.get("stop_loss")
+                        tp = strategy.get("take_profit")
+                        unit = strategy.get("unit", "pz")
+                        pnl_val = existing_pos.unrealized_pnl if existing_pos else 0.0
+                        await self.db.record_executed_operation(
+                            operation_id=op_id,
+                            symbol=sym,
+                            operation_type=op_type,
+                            action=action,
+                            quantity=float(size),
+                            price=float(current_price),
+                            stop_loss=float(sl) if sl else None,
+                            take_profit=float(tp) if tp else None,
+                            pnl=float(pnl_val),
+                            status="EXECUTED",
+                            details=f"Operazione {op_type} ({action}) su {sym} ({size} {unit}). Setup: {setup}. PnL: ${pnl_val:+.2f}.",
+                        )
                         await self.db.log_bot_event(
                             symbol=sym,
                             level="WARNING",
-                            message=f"Segnale operativo SELL/CLOSE per liquidare posizione esistente o aprire short. Budget verrà liberato ed espanso per rientro.",
+                            message=f"Operazione svolta: {op_type} ({action}) su {sym} per liquidare posizione esistente o aprire short.",
+                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size},
                         )
                     else:
                         await self.db.log_bot_event(

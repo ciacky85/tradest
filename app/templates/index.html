@@ -64,11 +64,8 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
 
-    <!-- Grid: Configurazione Google Gemini & Controllo Rapido -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Colonna 1 & 2: Autenticazione Google & Selezione Modello Gemini -->
-      <div class="card rounded-2xl p-6 lg:col-span-2 space-y-6 shadow-xl">
+    <!-- Configurazione Google Gemini / Motore AI -->
+    <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
         <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
@@ -159,66 +156,7 @@
         </div>
       </div>
 
-      <!-- Colonna 3: Controllo Operativo Bot & Parametri Rapidi -->
-      <div class="card rounded-2xl p-6 space-y-6 shadow-xl flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-3 border-b border-slate-700/60 pb-4">
-            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-              <i class="fa-solid fa-power-off text-lg"></i>
-            </div>
-            <div>
-              <h2 class="text-lg font-semibold text-white">Controllo Bot</h2>
-              <p class="text-xs text-slate-400">Avvio/Stop trading su XAUUSD</p>
-            </div>
-          </div>
-
-          <!-- Badge Connessione IBKR -->
-          <div id="ibkrStatusBadge" class="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-slate-800/50 text-slate-400 border border-slate-700">
-            <i class="fa-solid fa-chart-network"></i>
-            <span id="ibkrStatusText">IBKR: Non connesso</span>
-          </div>
-
-          <div class="mt-4 space-y-3">
-            <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
-              <span class="text-slate-400">Asset Principale</span>
-              <span class="font-bold text-amber-400">XAUUSD (Oro Spot)</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
-              <span class="text-slate-400">IBKR Host</span>
-              <span class="font-mono text-slate-300">192.168.1.212:4004</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
-              <span class="text-slate-400">Client ID IBKR</span>
-              <span class="font-mono text-slate-300">500</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
-              <span class="text-slate-400">Max Budget Trade</span>
-              <span class="font-mono text-emerald-400">$5,000.00</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
-              <span class="text-slate-400">Daily Loss Limit</span>
-              <span class="font-mono text-red-400">$500.00</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="space-y-2 pt-4">
-          <button id="btnStartBot" onclick="toggleBot(true)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25">
-            <i class="fa-solid fa-play"></i> AVVIA TRADING AUTOMATICO
-          </button>
-
-          <button id="btnStopBot" onclick="toggleBot(false)" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-pause"></i> PAUSA BOT
-          </button>
-
-          <button onclick="emergencyStop()" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/25">
-            <i class="fa-solid fa-triangle-exclamation"></i> Emergency Stop
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sezione: Configurazione Interactive Brokers -->
+      <!-- Sezione: Configurazione Interactive Brokers -->
     <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
       <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
         <div class="flex items-center gap-3">
@@ -517,11 +455,49 @@
             </div>
           </div>
 
-          <!-- Finestra Scorrevole Log Verbosi -->
+          <!-- Frame Operazioni Effettivamente Svolte (LONG / SHORT) -->
+          <div class="space-y-2 bg-slate-900/80 p-4 rounded-xl border border-slate-800 shadow-sm">
+            <div class="flex items-center justify-between text-xs text-slate-300">
+              <span class="flex items-center gap-2 font-bold text-emerald-400">
+                <i class="fa-solid fa-clipboard-check text-emerald-400"></i> Operazioni Svolte Effettivamente (<span id="opsSymbolLabel" class="font-mono text-emerald-300">XAUUSD</span>)
+              </span>
+              <div class="flex items-center gap-3">
+                <span id="opsCountBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">0 operazioni</span>
+                <button onclick="fetchBotOperations()" class="hover:text-white text-slate-400 transition text-[11px] flex items-center gap-1">
+                  <i class="fa-solid fa-rotate-right"></i> Aggiorna
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 mt-2">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 font-semibold text-[11px]">
+                  <tr>
+                    <th class="py-2 px-3">Data e Ora</th>
+                    <th class="py-2 px-3">Tipo / Direzione</th>
+                    <th class="py-2 px-3">Azione</th>
+                    <th class="py-2 px-3 text-right">Quantità</th>
+                    <th class="py-2 px-3 text-right">Prezzo Esec.</th>
+                    <th class="py-2 px-3 text-right">Stop Loss</th>
+                    <th class="py-2 px-3 text-right">Take Profit</th>
+                    <th class="py-2 px-3 text-right">P&L</th>
+                    <th class="py-2 px-3">Stato & Dettagli</th>
+                  </tr>
+                </thead>
+                <tbody id="botOperationsTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                  <tr>
+                    <td colspan="9" class="text-center py-4 text-slate-500 font-sans italic">Nessuna operazione registrata per questo asset</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Finestra Scorrevole Log Verbosi & Analisi di Mercato -->
           <div class="space-y-2">
             <div class="flex items-center justify-between text-xs text-slate-400 px-1">
               <span class="flex items-center gap-1.5 font-semibold">
-                <i class="fa-solid fa-terminal text-sky-400"></i> Console Attività & Log in Tempo Reale (<span id="logSymbolLabel" class="text-sky-300 font-mono">XAUUSD</span>)
+                <i class="fa-solid fa-terminal text-sky-400"></i> Log Completo Analisi & Monitoraggio Mercato (<span id="logSymbolLabel" class="text-sky-300 font-mono">XAUUSD</span>)
               </span>
               <div class="flex items-center gap-3">
                 <label class="flex items-center gap-1 text-[11px] cursor-pointer">
@@ -775,8 +751,15 @@
       // Recupera strategia salvata per questo simbolo e popola la card
       await loadSavedStrategyForSymbol(sym);
 
-      // Aggiorna stato del bot e carica i log
+      // Aggiorna etichette simbolo per log e operazioni
+      const opsSymEl = document.getElementById('opsSymbolLabel');
+      if (opsSymEl) opsSymEl.innerText = sym;
+      const logSymEl = document.getElementById('logSymbolLabel');
+      if (logSymEl) logSymEl.innerText = sym;
+
+      // Aggiorna stato del bot, operazioni svolte e log completi
       await updateSymbolBotStatus();
+      await fetchBotOperations();
       await fetchBotLogs();
     }
 
@@ -882,6 +865,25 @@
     async function toggleSymbolBot(enable) {
       const sym = currentSelectedSymbol;
       const endpoint = enable ? '/bot/start' : '/bot/stop';
+      const btnStart = document.getElementById('btnStartSymbolBot');
+      const btnStop = document.getElementById('btnStopSymbolBot');
+
+      if (enable) {
+        if (btnStart) {
+          btnStart.disabled = true;
+          btnStart.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 1. Sync Portafoglio & 2. Nuova Analisi AI...`;
+        }
+        // Mostra messaggio visivo di sincronizzazione
+        const logContainer = document.getElementById('botConsoleLogs');
+        if (logContainer) {
+          logContainer.innerHTML = `<div class="text-sky-400 font-bold leading-relaxed">[AVVIO IN CORSO] 1. Aggiornamento dati reali portafoglio IBKR &bull; 2. Esecuzione nuova analisi AI di mercato per ${sym}...</div>` + logContainer.innerHTML;
+        }
+      } else {
+        if (btnStop) {
+          btnStop.disabled = true;
+          btnStop.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Arresto...`;
+        }
+      }
 
       try {
         const res = await fetch(endpoint, {
@@ -891,14 +893,87 @@
         });
         const data = await res.json();
         if (res.ok) {
+          // Se avviato, ricarichiamo sia il portfolio a schermo che la card della nuova strategia
+          if (enable) {
+            await loadPortfolioData();
+            if (data.active_strategy) {
+              const container = document.getElementById('aiDecisionContainer');
+              container.classList.remove('hidden');
+              renderStrategyData(data.active_strategy);
+            }
+          }
           await updateSymbolBotStatus();
+          await fetchBotOperations();
           await fetchBotLogs();
-          showResultBox(true, enable ? `BOT ${sym} AVVIATO IN BACKGROUND!` : `BOT ${sym} FERMATO!`);
+          showResultBox(true, enable ? `PORTAFOGLIO SINCRONIZZATO & NUOVA ANALISI COMPLETATA: BOT ${sym} AVVIATO IN BACKGROUND!` : `BOT ${sym} FERMATO!`);
         } else {
           alert(`AVVIO BLOCCATO PER ${sym}:\n${data.detail || 'Verifica la strategia e il portafoglio'}`);
         }
       } catch (e) {
         alert('Errore operazione bot: ' + e.message);
+      } finally {
+        if (btnStart) {
+          btnStart.disabled = false;
+          btnStart.innerHTML = `<i class="fa-solid fa-play"></i> Avvia Trading su questo Titolo`;
+        }
+        if (btnStop) {
+          btnStop.disabled = false;
+          btnStop.innerHTML = `<i class="fa-solid fa-stop"></i> Ferma Bot`;
+        }
+      }
+    }
+
+    async function fetchBotOperations() {
+      const sym = currentSelectedSymbol;
+      const tbody = document.getElementById('botOperationsTableBody');
+      const badge = document.getElementById('opsCountBadge');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(`/bot/operations?symbol=${sym}&limit=50`);
+        if (res.ok) {
+          const data = await res.json();
+          const ops = data.operations || [];
+          if (badge) badge.innerText = `${ops.length} operazion${ops.length === 1 ? 'e' : 'i'}`;
+
+          if (ops.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-slate-500 font-sans italic">Nessuna operazione di acquisto/vendita eseguita finora per ${sym}</td></tr>`;
+          } else {
+            tbody.innerHTML = ops.map(op => {
+              const isBuy = op.action === 'BUY';
+              const typeBadge = isBuy
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px]">LONG (BUY)</span>'
+                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-bold border border-rose-500/20 text-[10px]">' + (op.operation_type || 'SELL') + '</span>';
+
+              const actColor = isBuy ? 'text-emerald-400' : 'text-rose-400';
+              const pnlVal = op.pnl || 0.0;
+              const pnlColor = pnlVal > 0 ? 'text-emerald-400 font-bold' : (pnlVal < 0 ? 'text-rose-400 font-bold' : 'text-slate-400');
+              const slText = op.stop_loss ? `$${op.stop_loss.toFixed(2)}` : '-';
+              const tpText = op.take_profit ? `$${op.take_profit.toFixed(2)}` : '-';
+              const priceText = op.price ? `$${op.price.toFixed(2)}` : '-';
+              const dateText = op.executed_at ? op.executed_at : '-';
+
+              return `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="py-2.5 px-3 text-sky-300 font-semibold whitespace-nowrap">${dateText}</td>
+                  <td class="py-2.5 px-3 whitespace-nowrap">${typeBadge}</td>
+                  <td class="py-2.5 px-3 font-bold ${actColor}">${op.action}</td>
+                  <td class="py-2.5 px-3 text-right text-slate-200 font-semibold">${op.quantity}</td>
+                  <td class="py-2.5 px-3 text-right text-white font-bold">${priceText}</td>
+                  <td class="py-2.5 px-3 text-right text-rose-300 font-mono">${slText}</td>
+                  <td class="py-2.5 px-3 text-right text-emerald-300 font-mono">${tpText}</td>
+                  <td class="py-2.5 px-3 text-right ${pnlColor}">$${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}</td>
+                  <td class="py-2.5 px-3 text-slate-300 max-w-xs truncate" title="${op.details || ''}">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 mr-1.5">${op.status}</span>
+                    <span class="text-slate-400 font-sans text-[11px]">${op.details || '-'}</span>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Errore recupero operazioni bot', e);
       }
     }
 
@@ -1168,9 +1243,10 @@
     document.addEventListener('DOMContentLoaded', () => {
       loadInitialStatus();
       switchSymbolTab('XAUUSD');
-      // Polling periodico ogni 5 secondi per log e status bot
+      // Polling periodico ogni 5 secondi per log, status bot e operazioni svolte
       setInterval(() => {
         updateSymbolBotStatus();
+        fetchBotOperations();
         fetchBotLogs();
       }, 5000);
     });

@@ -108,8 +108,26 @@ CREATE TABLE IF NOT EXISTS bot_trading_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabella operazioni/esecuzioni effettivamente svolte (LONG / SHORT)
+CREATE TABLE IF NOT EXISTS executed_operations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation_id TEXT UNIQUE NOT NULL,
+    symbol TEXT NOT NULL,
+    operation_type TEXT NOT NULL, -- LONG, SHORT, CLOSE_LONG, CLOSE_SHORT
+    action TEXT NOT NULL,         -- BUY, SELL
+    quantity REAL NOT NULL,
+    price REAL NOT NULL,
+    stop_loss REAL,
+    take_profit REAL,
+    pnl REAL DEFAULT 0.0,
+    status TEXT NOT NULL,         -- EXECUTED, FILLED, CLOSED
+    details TEXT,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indici per performance query frequenti
 CREATE INDEX IF NOT EXISTS idx_bot_logs_symbol ON bot_trading_logs(symbol, id DESC);
+CREATE INDEX IF NOT EXISTS idx_executed_ops_symbol ON executed_operations(symbol, id DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_closed_at ON trades(closed_at);
 CREATE INDEX IF NOT EXISTS idx_ai_decisions_created ON ai_decisions(created_at);
@@ -385,6 +403,72 @@ class Database:
             rows = await cursor.fetchall()
             result = [dict(r) for r in reversed(rows)]
             return result
+
+    # --- Operazioni Svolte Effettivamente (Executed Operations) ---
+
+    async def record_executed_operation(
+        self,
+        operation_id: str,
+        symbol: str,
+        operation_type: str,
+        action: str,
+        quantity: float,
+        price: float,
+        stop_loss: Optional[float] = None,
+        take_profit: Optional[float] = None,
+        pnl: float = 0.0,
+        status: str = "EXECUTED",
+        details: Optional[str] = None,
+    ) -> None:
+        """Registra una singola operazione svolta effettivamente dal bot."""
+        await self._ensure_connected()
+        assert self._conn is not None
+        query = """
+            INSERT INTO executed_operations (
+                operation_id, symbol, operation_type, action, quantity,
+                price, stop_loss, take_profit, pnl, status, details
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(operation_id) DO UPDATE SET
+                pnl = excluded.pnl,
+                status = excluded.status,
+                details = excluded.details
+        """
+        await self._conn.execute(
+            query,
+            (
+                operation_id,
+                symbol.upper(),
+                operation_type.upper(),
+                action.upper(),
+                quantity,
+                price,
+                stop_loss,
+                take_profit,
+                pnl,
+                status.upper(),
+                details,
+            ),
+        )
+        await self._conn.commit()
+
+    async def get_executed_operations(
+        self,
+        symbol: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Recupera le operazioni svolte effettivamente, ordinate cronologicamente decrescenti (le più recenti in alto)."""
+        await self._ensure_connected()
+        assert self._conn is not None
+        if symbol:
+            query = "SELECT * FROM executed_operations WHERE symbol = ? ORDER BY executed_at DESC, id DESC LIMIT ?"
+            params = (symbol.upper(), limit)
+        else:
+            query = "SELECT * FROM executed_operations ORDER BY executed_at DESC, id DESC LIMIT ?"
+            params = (limit,)
+
+        async with self._conn.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
     # --- Health Check ---
 
