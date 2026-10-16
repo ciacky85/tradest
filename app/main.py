@@ -14,6 +14,7 @@ Fornisce:
 
 from __future__ import annotations
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -326,10 +327,15 @@ async def simulate_trade(req: Optional[AnalysisRequest] = None) -> dict[str, Any
         from strategy.scalping_strategy import get_scalping_manager
 
         manager = get_scalping_manager()
-        strategy = await manager.analyze_and_generate_strategy(symbol=sym, custom_budget=custom_budget)
+        strategy = await asyncio.wait_for(
+            manager.analyze_and_generate_strategy(symbol=sym, custom_budget=custom_budget),
+            timeout=80.0,
+        )
         return strategy
     except Exception as e:
-        logger.error(f"Errore analisi e generazione strategia per {sym}", exc=str(e))
+        import traceback
+        err_tb = traceback.format_exc()
+        logger.error(f"Errore analisi e generazione strategia per {sym}", exc=err_tb)
         return {"error": f"Errore durante l'analisi: {str(e)}"}
 
 

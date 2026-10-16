@@ -11,6 +11,7 @@ Supporta:
 
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -96,24 +97,30 @@ class MarketAnalyzer:
                 else:
                     contract = Contract(symbol=sym, secType=sec_type, exchange=exchange, currency=currency)
 
-                # 1. Barre a 30 giorni giornaliere
-                bars_30d = await ib.reqHistoricalDataAsync(
-                    contract,
-                    endDateTime="",
-                    durationStr="30 D",
-                    barSizeSetting="1 day",
-                    whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
-                    useRTH=True,
+                # 1. Barre a 30 giorni giornaliere (con timeout prudenziale)
+                bars_30d = await asyncio.wait_for(
+                    ib.reqHistoricalDataAsync(
+                        contract,
+                        endDateTime="",
+                        durationStr="30 D",
+                        barSizeSetting="1 day",
+                        whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
+                        useRTH=True,
+                    ),
+                    timeout=5.0,
                 )
 
-                # 2. Barre a 7 giorni orarie
-                bars_7d = await ib.reqHistoricalDataAsync(
-                    contract,
-                    endDateTime="",
-                    durationStr="7 D",
-                    barSizeSetting="1 hour",
-                    whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
-                    useRTH=False,
+                # 2. Barre a 7 giorni orarie (con timeout prudenziale)
+                bars_7d = await asyncio.wait_for(
+                    ib.reqHistoricalDataAsync(
+                        contract,
+                        endDateTime="",
+                        durationStr="7 D",
+                        barSizeSetting="1 hour",
+                        whatToShow="MIDPOINT" if sec_type == "CFD" else "TRADES",
+                        useRTH=False,
+                    ),
+                    timeout=5.0,
                 )
 
                 if bars_30d and bars_7d:

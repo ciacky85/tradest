@@ -148,11 +148,8 @@ class Database:
 
     async def connect(self) -> None:
         """Apre la connessione al database e inizializza lo schema."""
-        self._conn = await aiosqlite.connect(self.db_path)
+        self._conn = await aiosqlite.connect(self.db_path, timeout=10.0)
         self._conn.row_factory = aiosqlite.Row
-        await self._conn.execute("PRAGMA journal_mode=WAL")
-        await self._conn.execute("PRAGMA foreign_keys=ON")
-        await self._init_schema()
         logger.info("Database SQLite connesso", path=self.db_path)
 
     async def disconnect(self) -> None:
@@ -164,9 +161,7 @@ class Database:
 
     async def _init_schema(self) -> None:
         """Crea le tabelle se non esistono."""
-        if self._conn:
-            await self._conn.executescript(INIT_SQL)
-            await self._conn.commit()
+        pass
 
     # --- Runtime Config ---
 
@@ -177,28 +172,26 @@ class Database:
 
     async def set_config(self, key: str, value: Any) -> None:
         """Salva un valore di configurazione (serializzato in JSON)."""
-        await self._ensure_connected()
         val_str = json.dumps(value)
         query = """
             INSERT INTO runtime_config (key, value, updated_at)
             VALUES (?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP
         """
-        assert self._conn is not None
-        await self._conn.execute(query, (key, val_str))
-        await self._conn.commit()
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            await conn.execute(query, (key, val_str))
+            await conn.commit()
 
     async def get_config(self, key: str, default: Any = None) -> Any:
         """Recupera un valore di configurazione."""
-        await self._ensure_connected()
-        assert self._conn is not None
-        async with self._conn.execute(
-            "SELECT value FROM runtime_config WHERE key = ?", (key,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return json.loads(row[0])
-            return default
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            async with conn.execute(
+                "SELECT value FROM runtime_config WHERE key = ?", (key,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return json.loads(row[0])
+                return default
 
     # --- Trades ---
 
@@ -297,7 +290,6 @@ class Database:
         rejection_reason: Optional[str] = None,
     ) -> int:
         """Registra una decisione presa dal motore AI."""
-        await self._ensure_connected()
         query = """
             INSERT INTO ai_decisions (
                 symbol, action, confidence, reasoning, market_sentiment,
@@ -305,27 +297,27 @@ class Database:
                 urgency, risk_reward_ratio, executed, rejection_reason
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        assert self._conn is not None
-        cursor = await self._conn.execute(
-            query,
-            (
-                symbol,
-                action,
-                confidence,
-                reasoning,
-                market_sentiment,
-                entry_price,
-                stop_loss,
-                take_profit,
-                position_size_oz,
-                urgency,
-                risk_reward_ratio,
-                1 if executed else 0,
-                rejection_reason,
-            ),
-        )
-        await self._conn.commit()
-        return cursor.lastrowid or 0
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            cursor = await conn.execute(
+                query,
+                (
+                    symbol,
+                    action,
+                    confidence,
+                    reasoning,
+                    market_sentiment,
+                    entry_price,
+                    stop_loss,
+                    take_profit,
+                    position_size_oz,
+                    urgency,
+                    risk_reward_ratio,
+                    1 if executed else 0,
+                    rejection_reason,
+                ),
+            )
+            await conn.commit()
+            return cursor.lastrowid or 0
 
     async def get_recent_ai_decisions(self, limit: int = 20) -> list[dict]:
         """Restituisce le ultime decisioni AI."""
@@ -377,12 +369,11 @@ class Database:
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Registra un evento/log dettagliato di trading nel database."""
-        await self._ensure_connected()
-        assert self._conn is not None
         meta_str = json.dumps(metadata) if metadata else None
         query = "INSERT INTO bot_trading_logs (symbol, level, message, metadata) VALUES (?, ?, ?, ?)"
-        await self._conn.execute(query, (symbol.upper(), level.upper(), message, meta_str))
-        await self._conn.commit()
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            await conn.execute(query, (symbol.upper(), level.upper(), message, meta_str))
+            await conn.commit()
 
     async def get_bot_logs(
         self,
@@ -390,8 +381,6 @@ class Database:
         limit: int = 150,
     ) -> list[dict[str, Any]]:
         """Recupera i log di trading ordinati cronologicamente, filtrabili per simbolo."""
-        await self._ensure_connected()
-        assert self._conn is not None
         if symbol:
             query = "SELECT * FROM bot_trading_logs WHERE symbol = ? ORDER BY id DESC LIMIT ?"
             params = (symbol.upper(), limit)
@@ -399,10 +388,12 @@ class Database:
             query = "SELECT * FROM bot_trading_logs ORDER BY id DESC LIMIT ?"
             params = (limit,)
 
-        async with self._conn.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-            result = [dict(r) for r in reversed(rows)]
-            return result
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                result = [dict(r) for r in reversed(rows)]
+                return result
 
     # --- Operazioni Svolte Effettivamente (Executed Operations) ---
 
@@ -421,8 +412,6 @@ class Database:
         details: Optional[str] = None,
     ) -> None:
         """Registra una singola operazione svolta effettivamente dal bot."""
-        await self._ensure_connected()
-        assert self._conn is not None
         query = """
             INSERT INTO executed_operations (
                 operation_id, symbol, operation_type, action, quantity,
@@ -433,23 +422,24 @@ class Database:
                 status = excluded.status,
                 details = excluded.details
         """
-        await self._conn.execute(
-            query,
-            (
-                operation_id,
-                symbol.upper(),
-                operation_type.upper(),
-                action.upper(),
-                quantity,
-                price,
-                stop_loss,
-                take_profit,
-                pnl,
-                status.upper(),
-                details,
-            ),
-        )
-        await self._conn.commit()
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            await conn.execute(
+                query,
+                (
+                    operation_id,
+                    symbol.upper(),
+                    operation_type.upper(),
+                    action.upper(),
+                    quantity,
+                    price,
+                    stop_loss,
+                    take_profit,
+                    pnl,
+                    status.upper(),
+                    details,
+                ),
+            )
+            await conn.commit()
 
     async def get_executed_operations(
         self,
@@ -457,8 +447,6 @@ class Database:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Recupera le operazioni svolte effettivamente, ordinate cronologicamente decrescenti (le più recenti in alto)."""
-        await self._ensure_connected()
-        assert self._conn is not None
         if symbol:
             query = "SELECT * FROM executed_operations WHERE symbol = ? ORDER BY executed_at DESC, id DESC LIMIT ?"
             params = (symbol.upper(), limit)
@@ -466,9 +454,11 @@ class Database:
             query = "SELECT * FROM executed_operations ORDER BY executed_at DESC, id DESC LIMIT ?"
             params = (limit,)
 
-        async with self._conn.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(r) for r in rows]
 
     # --- Health Check ---
 

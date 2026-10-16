@@ -13,6 +13,7 @@ Regole operative fondamentali:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -73,12 +74,12 @@ class ScalpingStrategyManager:
         else:
             target_budget = await self.get_symbol_budget(sym)
 
-        # 2. Sincronizzazione preventiva Portafoglio IBKR
+        # 2. Sincronizzazione preventiva Portafoglio IBKR (con timeout breve per non bloccare l'analisi)
         try:
             if not self.ib_client.is_connected:
-                await self.ib_client.connect(timeout=5.0)
+                await asyncio.wait_for(self.ib_client.connect(timeout=3.0), timeout=3.5)
         except Exception as e:
-            logger.warning("Connessione preventiva a IBKR non disponibile", exc=str(e))
+            logger.warning(f"Connessione preventiva a IBKR non disponibile per {sym}", exc=str(e))
 
         portfolio = await self.ib_client.get_portfolio()
         acc = portfolio.account
@@ -215,10 +216,13 @@ class ScalpingStrategyManager:
 - NOTA INTERI: Su IBKR le quantità DEVONO ESSERE INTERE (1, 2, 3... quote). Mai indicare numeri frazionari (es. 1.5, 0.8).
 """
 
-        # 7. Interrogazione AI
-        ai_result = await self.ai_client.generate_trade_analysis(
-            prompt=filled_prompt,
-            system_instruction=sys_instruction,
+        # 7. Interrogazione AI (con timeout congruo per ragionamenti complessi del modello)
+        ai_result = await asyncio.wait_for(
+            self.ai_client.generate_trade_analysis(
+                prompt=filled_prompt,
+                system_instruction=sys_instruction,
+            ),
+            timeout=70.0,
         )
 
         # 8. Sanificazione dell'Azione (Guardia di Rischio sul Budget)

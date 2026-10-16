@@ -302,7 +302,7 @@ class GeminiClient:
             "max_tokens": 2048,
         }
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=75.0) as client:
             resp = await client.post(url, headers=headers, json=payload)
             if resp.status_code != 200:
                 raise RuntimeError(f"Errore Omniroute API ({resp.status_code}): {resp.text}")
