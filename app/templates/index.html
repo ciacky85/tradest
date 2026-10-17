@@ -342,16 +342,22 @@
 
         <!-- OPERAZIONI SVOLTE ED ESECUZIONI DEL TITOLO (FRAME RIASSUNTIVO ELEGANTE) -->
         <div class="space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <h3 class="text-sm font-bold text-white flex items-center gap-2">
                 <i class="fa-solid fa-list-check text-sky-400"></i> Operazioni Svolte dal Bot (<span class="activeSymLabel text-sky-300">XAUUSD</span>)
               </h3>
               <span class="text-[11px] text-slate-400 hidden sm:inline">• Ultimo agg: <span id="operationsLastSync" class="font-mono text-slate-300">-</span></span>
             </div>
-            <button id="btnOperationsRefresh" onclick="fetchBotOperations()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
-              <i class="fa-solid fa-rotate-right"></i> Aggiorna Operazioni
-            </button>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none" title="Se non spuntato, vengono mostrate solo le operazioni realmente eseguite su IBKR">
+                <input type="checkbox" id="showSimulatedOps" onchange="fetchBotOperations()" class="rounded border-slate-700 bg-slate-800 text-sky-500" />
+                <span>Mostra operazioni simulate</span>
+              </label>
+              <button id="btnOperationsRefresh" onclick="fetchBotOperations()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+                <i class="fa-solid fa-rotate-right"></i> Aggiorna Operazioni
+              </button>
+            </div>
           </div>
 
           <div class="overflow-x-auto rounded-xl border border-slate-800">
@@ -1384,15 +1390,16 @@
       const sym = currentSelectedSymbol;
       const body = document.getElementById('botOperationsTableBody');
       const btn = document.getElementById('btnOperationsRefresh');
+      const showSimulated = document.getElementById('showSimulatedOps')?.checked || false;
       if (btn) btn.classList.add('animate-pulse', 'text-sky-300');
 
       try {
-        const res = await fetch(`/bot/operations?symbol=${sym}&limit=30`);
+        const res = await fetch(`/bot/operations?symbol=${sym}&limit=30&include_simulated=${showSimulated}`);
         if (res.ok) {
           const data = await res.json();
           const ops = data.operations || [];
           if (ops.length === 0) {
-            body.innerHTML = `<tr><td colspan="8" class="px-4 py-4 text-center text-slate-500 italic">Nessuna operazione reale eseguita finora per ${sym}.</td></tr>`;
+            body.innerHTML = `<tr><td colspan="8" class="px-4 py-4 text-center text-slate-500 italic">${showSimulated ? 'Nessuna operazione (reale o simulata) registrata' : 'Nessuna operazione reale eseguita finora'} per ${sym}.</td></tr>`;
           } else {
             body.innerHTML = ops.map(op => {
               const actColor = op.action === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border-rose-500/20';

@@ -179,6 +179,32 @@ class MultiBotEngine:
                             sl = strategy.get("stop_loss")
                             tp = strategy.get("take_profit")
                             unit = strategy.get("unit", "pz")
+                            sec_type = existing_pos.sec_type if existing_pos else ("CFD" if sym == "XAUUSD" else "STK")
+                            exchange = existing_pos.exchange if existing_pos else "SMART"
+                            currency = existing_pos.currency if existing_pos else "USD"
+
+                            order_result = await self.ib_client.place_market_order(
+                                symbol=sym,
+                                action="BUY",
+                                quantity=float(size),
+                                sec_type=sec_type,
+                                exchange=exchange,
+                                currency=currency,
+                            )
+
+                            if order_result.get("success"):
+                                status = "EXECUTED"
+                                details = f"Ordine reale BUY inviato a IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. Motivo: {reasoning[:100]}..."
+                                log_level = "SUCCESS"
+                                log_msg = f"Operazione reale LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. Ordine IBKR: {order_result.get('order_id')}. SL: ${sl} | TP: ${tp}."
+                                simulated = False
+                            else:
+                                status = "FAILED"
+                                details = f"Ordine BUY non eseguito: {order_result.get('error')}. Nessuna operazione effettuata."
+                                log_level = "ERROR"
+                                log_msg = f"Ordine BUY NON eseguito su {sym}: {order_result.get('error')}"
+                                simulated = False
+
                             await self.db.record_executed_operation(
                                 operation_id=op_id,
                                 symbol=sym,
@@ -189,14 +215,14 @@ class MultiBotEngine:
                                 stop_loss=float(sl) if sl else None,
                                 take_profit=float(tp) if tp else None,
                                 pnl=0.0,
-                                status="SIMULATED",
-                                details=f"[SIMULATO] Ingresso LONG scalping su {sym} ({size} {unit}). Setup: {setup}. Motivo: {reasoning[:120]}...",
+                                status=status,
+                                details=details,
                             )
                             await self.db.log_bot_event(
                                 symbol=sym,
-                                level="SUCCESS",
-                                message=f"[SIMULATO] Operazione LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. SL: ${sl} | TP: ${tp}. Nessun ordine reale inviato a IBKR.",
-                                metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size, "simulated": True},
+                                level=log_level,
+                                message=log_msg,
+                                metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size, "simulated": simulated, "order_id": order_result.get("order_id"), "order_status": status},
                             )
                     elif action in ("SELL", "CLOSE"):
                         op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"
@@ -205,6 +231,32 @@ class MultiBotEngine:
                         tp = strategy.get("take_profit")
                         unit = strategy.get("unit", "pz")
                         pnl_val = existing_pos.unrealized_pnl if existing_pos else 0.0
+                        sec_type = existing_pos.sec_type if existing_pos else ("CFD" if sym == "XAUUSD" else "STK")
+                        exchange = existing_pos.exchange if existing_pos else "SMART"
+                        currency = existing_pos.currency if existing_pos else "USD"
+
+                        order_result = await self.ib_client.place_market_order(
+                            symbol=sym,
+                            action="SELL",
+                            quantity=float(size),
+                            sec_type=sec_type,
+                            exchange=exchange,
+                            currency=currency,
+                        )
+
+                        if order_result.get("success"):
+                            status = "EXECUTED"
+                            details = f"Ordine reale {action} inviato a IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. PnL: ${pnl_val:+.2f}."
+                            log_level = "WARNING"
+                            log_msg = f"Operazione reale {op_type} ({action}) su {sym} inviata a IBKR. Ordine: {order_result.get('order_id')}. PnL: ${pnl_val:+.2f}."
+                            simulated = False
+                        else:
+                            status = "FAILED"
+                            details = f"Ordine {action} non eseguito: {order_result.get('error')}. Nessuna operazione effettuata."
+                            log_level = "ERROR"
+                            log_msg = f"Ordine {action} NON eseguito su {sym}: {order_result.get('error')}"
+                            simulated = False
+
                         await self.db.record_executed_operation(
                             operation_id=op_id,
                             symbol=sym,
@@ -215,14 +267,14 @@ class MultiBotEngine:
                             stop_loss=float(sl) if sl else None,
                             take_profit=float(tp) if tp else None,
                             pnl=float(pnl_val),
-                            status="SIMULATED",
-                            details=f"[SIMULATO] Operazione {op_type} ({action}) su {sym} ({size} {unit}). Setup: {setup}. PnL: ${pnl_val:+.2f}. Nessun ordine reale inviato a IBKR.",
+                            status=status,
+                            details=details,
                         )
                         await self.db.log_bot_event(
                             symbol=sym,
-                            level="WARNING",
-                            message=f"[SIMULATO] Operazione {op_type} ({action}) su {sym} per liquidare posizione esistente o aprire short. Nessun ordine reale inviato a IBKR.",
-                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size, "simulated": True},
+                            level=log_level,
+                            message=log_msg,
+                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size, "simulated": simulated, "order_id": order_result.get("order_id"), "order_status": status},
                         )
                     else:
                         await self.db.log_bot_event(

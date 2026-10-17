@@ -964,14 +964,18 @@ async def get_bot_logs(symbol: Optional[str] = None, limit: int = 100) -> dict[s
     summary="Recupera le operazioni svolte effettivamente (LONG / SHORT)",
     tags=["Controllo Bot"],
 )
-async def get_bot_operations(symbol: Optional[str] = None, limit: int = 50) -> dict[str, Any]:
+async def get_bot_operations(
+    symbol: Optional[str] = None,
+    limit: int = 50,
+    include_simulated: bool = False,
+) -> dict[str, Any]:
     """
-    Restituisce le sole operazioni effettivamente svolte dal bot (BUY/SELL/LONG/SHORT),
-    ordinate cronologicamente con data/ora e tutti i dettagli esecutivi (SL, TP, PnL, Prezzo, Quantità).
+    Restituisce le operazioni del bot ordinate cronologicamente con data/ora e dettagli esecutivi.
+    Di default include_simulated=False: mostra solo le operazioni reali (EXECUTED).
     """
     db = get_db()
-    ops = await db.get_executed_operations(symbol=symbol, limit=limit)
-    return {"symbol": symbol, "operations": ops, "count": len(ops)}
+    ops = await db.get_executed_operations(symbol=symbol, limit=limit, include_simulated=include_simulated)
+    return {"symbol": symbol, "operations": ops, "count": len(ops), "include_simulated": include_simulated}
 
 
 @app.post(

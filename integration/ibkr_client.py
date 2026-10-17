@@ -153,6 +153,74 @@ class IBKRClient:
             self._connected = False
             logger.info("Disconnesso da IBKR Gateway")
 
+    async def place_market_order(
+        self,
+        symbol: str,
+        action: str,
+        quantity: float,
+        sec_type: str = "STK",
+        exchange: str = "SMART",
+        currency: str = "USD",
+    ) -> dict[str, Any]:
+        """
+        Invia un ordine di mercato reale a IBKR.
+        Restituisce un dizionario con esito, order_id e dettagli.
+        """
+        if quantity <= 0:
+            return {"success": False, "error": "Quantità non valida per l'ordine", "order_id": None}
+
+        if not self._ib or not self._ib.isConnected():
+            ok = await self.connect(timeout=4.0)
+            if not ok or not self._ib or not self._ib.isConnected():
+                return {"success": False, "error": "IBKR non connesso: impossibile inviare l'ordine", "order_id": None}
+
+        try:
+            from ib_insync import Contract, MarketOrder
+
+            contract = Contract()
+            contract.symbol = symbol
+            contract.secType = sec_type
+            contract.exchange = exchange or "SMART"
+            contract.currency = currency or "USD"
+
+            if sec_type.upper() == "STK":
+                contract.primaryExchange = exchange or "SMART"
+
+            # Qualifica il contratto per ottenere conId/definizione corretta da IBKR
+            try:
+                qualified = await asyncio.wait_for(self._ib.qualifyContractsAsync(contract), timeout=5.0)
+                if qualified:
+                    contract = qualified[0]
+            except Exception as qual_err:
+                logger.warning("Qualifica contratto IBKR fallita, proseguo con contratto grezzo", error=str(qual_err))
+
+            order = MarketOrder(
+                action="BUY" if action.upper() == "BUY" else "SELL",
+                totalQuantity=float(quantity),
+            )
+
+            trade = self._ib.placeOrder(contract, order)
+            if not trade:
+                return {"success": False, "error": "Nessun trade restituito da IBKR", "order_id": None}
+
+            await asyncio.sleep(0.3)
+            order_id = str(trade.order.orderId) if trade.order else None
+            status = getattr(trade.orderStatus, "status", "Submitted")
+            return {
+                "success": True,
+                "order_id": order_id,
+                "status": status,
+                "symbol": symbol,
+                "action": action.upper(),
+                "quantity": float(quantity),
+                "sec_type": sec_type,
+                "exchange": exchange,
+                "currency": currency,
+            }
+        except Exception as e:
+            logger.error("Errore invio ordine IBKR", symbol=symbol, action=action, error=str(e))
+            return {"success": False, "error": str(e), "order_id": None}
+
     async def get_portfolio(self) -> Portfolio:
         """
         Recupera i dati del portafoglio (liquidità, cash, margine, P&L, posizioni) da IBKR.

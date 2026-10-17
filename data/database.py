@@ -445,14 +445,25 @@ class Database:
         self,
         symbol: Optional[str] = None,
         limit: int = 100,
+        include_simulated: bool = False,
     ) -> list[dict[str, Any]]:
-        """Recupera le operazioni svolte effettivamente, ordinate cronologicamente decrescenti (le più recenti in alto)."""
+        """
+        Recupera le operazioni ordinate cronologicamente decrescenti (le più recenti in alto).
+        Se include_simulated è False restituisce solo le operazioni realmente eseguite (status EXECUTED).
+        """
+        where_parts = []
+        params: list[Any] = []
+
         if symbol:
-            query = "SELECT * FROM executed_operations WHERE symbol = ? ORDER BY executed_at DESC, id DESC LIMIT ?"
-            params = (symbol.upper(), limit)
-        else:
-            query = "SELECT * FROM executed_operations ORDER BY executed_at DESC, id DESC LIMIT ?"
-            params = (limit,)
+            where_parts.append("symbol = ?")
+            params.append(symbol.upper())
+
+        if not include_simulated:
+            where_parts.append("status = 'EXECUTED'")
+
+        where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+        params.append(limit)
+        query = f"SELECT * FROM executed_operations {where_sql} ORDER BY executed_at DESC, id DESC LIMIT ?"
 
         async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
             conn.row_factory = aiosqlite.Row
