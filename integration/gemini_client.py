@@ -299,7 +299,7 @@ class GeminiClient:
             "model": active_model,
             "messages": messages,
             "temperature": 0.1,
-            "max_tokens": 2048,
+            "max_tokens": 4096,
         }
 
         async with httpx.AsyncClient(timeout=75.0) as client:

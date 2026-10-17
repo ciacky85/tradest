@@ -163,11 +163,16 @@ class MultiBotEngine:
                     )
 
                     if action == "BUY":
-                        if strategy.get("budget_saturated"):
+                        # Calcola se la posizione esistente (reale o simulata) copre già il budget
+                        existing_val = (existing_pos.market_value if existing_pos and existing_pos.market_value > 0
+                                        else ((existing_pos.quantity * current_price) if existing_pos else 0.0))
+                        is_budget_exceeded = strategy.get("budget_saturated") or (existing_val + current_price > budget * 1.05) or (existing_pos is not None and existing_pos.quantity >= 1)
+
+                        if is_budget_exceeded:
                             await self.db.log_bot_event(
                                 symbol=sym,
                                 level="INFO",
-                                message=f"Ordine BUY inibito per rispetto del budget. La posizione esistente copre già il budget di ${budget:,.2f}.",
+                                message=f"Ordine BUY inibito per rispetto del budget. La posizione presente ({existing_pos.quantity if existing_pos else 1} {strategy.get('unit', 'pz')}) copre già il budget di ${budget:,.2f}.",
                             )
                         else:
                             op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"

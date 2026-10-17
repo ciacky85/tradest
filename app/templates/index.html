@@ -1343,12 +1343,13 @@
           } else {
             body.innerHTML = ops.map(op => {
               const actColor = op.action === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+              const timeDisplay = op.executed_at || op.created_at || '-';
               return `
                 <tr class="hover:bg-slate-800/40 font-mono text-xs">
-                  <td class="px-4 py-2.5 text-slate-400">${op.created_at || '-'}</td>
+                  <td class="px-4 py-2.5 text-slate-300 font-medium">${timeDisplay}</td>
                   <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded border text-[11px] font-bold ${actColor}">${op.action}</span></td>
                   <td class="px-4 py-2.5 font-bold text-white">${op.symbol}</td>
-                  <td class="px-4 py-2.5">${op.quantity}</td>
+                  <td class="px-4 py-2.5 font-semibold text-white">${op.quantity}</td>
                   <td class="px-4 py-2.5 text-slate-200">$${parseFloat(op.price || 0).toFixed(2)}</td>
                   <td class="px-4 py-2.5 text-rose-300">$${parseFloat(op.stop_loss || 0).toFixed(2)}</td>
                   <td class="px-4 py-2.5 text-emerald-300">$${parseFloat(op.take_profit || 0).toFixed(2)}</td>
