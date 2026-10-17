@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.6** (2026-10-17): Implementato l'invio di ordini reali a IBKR via `place_market_order` con qualifica contratto; le operazioni BUY/SELL vengono registrate `EXECUTED` solo in caso di successo reale, altrimenti `FAILED`. Aggiunto filtro "Mostra operazioni simulate" (predefinito disattivato) che mostra solo le operazioni reali.
+- **v1.7.7** (2026-10-17): Aggiunta colonna `simulated` a `executed_operations` con migrazione automatica e retroclassificazione delle vecchie operazioni `EXECUTED` come simulate; il filtro predefinito ora esclude realmente le operazioni simulate e la UI mostra badge `SIMULATO`.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi

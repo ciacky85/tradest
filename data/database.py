@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS executed_operations (
     pnl REAL DEFAULT 0.0,
     status TEXT NOT NULL,         -- EXECUTED, FILLED, CLOSED
     details TEXT,
+    simulated INTEGER DEFAULT 0,
     executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -150,6 +151,7 @@ class Database:
         """Apre la connessione al database e inizializza lo schema."""
         self._conn = await aiosqlite.connect(self.db_path, timeout=10.0)
         self._conn.row_factory = aiosqlite.Row
+        await self._init_schema()
         logger.info("Database SQLite connesso", path=self.db_path)
 
     async def disconnect(self) -> None:
@@ -160,8 +162,24 @@ class Database:
             logger.info("Database SQLite disconnesso")
 
     async def _init_schema(self) -> None:
-        """Crea le tabelle se non esistono."""
-        pass
+        """Crea le tabelle se non esistono ed esegue le migrazioni dello schema."""
+        if self._conn is None:
+            return
+        await self._conn.executescript(INIT_SQL)
+
+        # Migrazione: aggiunge la colonna simulated a executed_operations se assente
+        # e retroclassifica le vecchie operazioni EXECUTED (pre-order-executor) come simulate.
+        async with self._conn.execute("PRAGMA table_info(executed_operations)") as cursor:
+            cols = await cursor.fetchall()
+        col_names = [row[1] for row in cols]
+
+        if "simulated" not in col_names:
+            await self._conn.execute("ALTER TABLE executed_operations ADD COLUMN simulated INTEGER DEFAULT 0")
+            await self._conn.execute(
+                "UPDATE executed_operations SET simulated = 1 WHERE status = 'EXECUTED'"
+            )
+
+        await self._conn.commit()
 
     # --- Runtime Config ---
 
@@ -460,6 +478,7 @@ class Database:
 
         if not include_simulated:
             where_parts.append("status = 'EXECUTED'")
+            where_parts.append("simulated = 0")
 
         where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
         params.append(limit)
