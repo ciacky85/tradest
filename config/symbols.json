@@ -69,8 +69,30 @@
       "margin_requirement_pct": 20.0,
       "enabled": true,
       "priority": 4
+    },
+    "TSLA": {
+      "symbol": "TSLA",
+      "ib_symbol": "TSLA",
+      "ib_exchange": "SMART",
+      "ib_sec_type": "STK",
+      "ib_currency": "USD",
+      "description": "Tesla Inc",
+      "asset_class": "stock",
+      "pip_size": 0.01,
+      "tick_size": 0.01,
+      "contract_size": 1.0,
+      "unit": "shares",
+      "allow_fractional": false,
+      "margin_requirement_pct": 25.0,
+      "enabled": true,
+      "priority": 5
     }
   },
   "default_symbol": "XAUUSD",
-  "watchlist": ["XAUUSD", "NVDA", "SPCX", "IB1T"]
+  "watchlist": [
+    "XAUUSD",
+    "NVDA",
+    "SPCX",
+    "IB1T"
+  ]
 }

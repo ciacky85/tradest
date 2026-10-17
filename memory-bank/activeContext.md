@@ -1,17 +1,27 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.6.1`
-- **Data:** 2026-10-16
+- **Versione Corrente:** `1.7.0`
+- **Data:** 2026-10-17
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`
 - **Token GitHub:** Memorizzato in `/home/vvelectron/.github_token`
 - **IBKR Gateway:** `192.168.1.212:4004` (VNC: `5900`, Client ID 500/dinamico, Account verificato: `DUR222070`)
 - **Portainer Stack:** Porta `18881` esposta, volume esterno `/srv/docker_conf/configs/tradest_conf`
-- **Web Dashboard:** Dashboard Web attiva su `/` con interfaccia a Tab per ciascun titolo a portafoglio, frame riassuntivo dedicato delle sole operazioni svolte (LONG/SHORT) posto sopra la console dei log di mercato con dettaglio completo partendo da data e ora. Sequenza tassativa pre-avvio del bot: sync portafoglio reale, nuova analisi AI di mercato fresca e solo infine avvio in background.
+- **Web Dashboard & Tab Navigation:** Riorganizzata la dashboard in schermate e tab apribili separatamente:
+  1. *Dashboard & Scalping:* Quadro generale portafoglio unificato con stato lavori in corso, metriche saldi real-time, frame di lancio scalping con parametro budget, verdetto AI, storico operazioni svolte e console log.
+  2. *Tab Titoli:* Icone e loghi ufficiali ad alta risoluzione (Nvidia, Apple, Microsoft, Amazon, Tesla, Meta, Google, ecc.) con stato attivo/inattivo del bot in background per ciascun titolo.
+  3. *Portafoglio Reale:* Schermata dedicata con saldo, buying power, posizioni aperte con P&L, ordini pendenti ed esecuzioni storiche da IBKR.
+  4. *Cerca Asset / Titoli:* Finestra/schermata di ricerca per nome azienda, simbolo ticker o ISIN, con quote in tempo reale e pulsante di aggiunta a portafoglio/trading con relativo budget.
+  5. *Gateway & Credenziali:* Schermate dedicate per la gestione delle connessioni (Omniroute/Google AI Studio e IBKR Gateway paper/live con credenziali salvabili).
 
 ## Note Operative
-1. **Versione 1.6.1:**
+1. **Versione 1.7.0:**
+   - Implementazione della nuova navigazione a schermate/tab in [`app/templates/index.html`](app/templates/index.html:1).
+   - Nuovi endpoint API in [`app/main.py`](app/main.py:600): `/api/symbols/search` (ricerca su mercati via ticker/nome/ISIN), `/api/symbols/quote/{symbol}` (prezzo e variazione 24h) e `/api/symbols/add` (aggiunta di nuovi asset con configurazione e budget persistente).
+   - Aggiunta funzione `save_symbols_config` in [`app/config.py`](app/config.py:202) per persistenza configurazione simboli tradabili.
+   - Test di integrazione superati con successo: IA (Omniroute/Antigravity OK), IBKR Gateway (Paper account `DUR222070` con 4 posizioni OK).
+2. **Versione 1.6.1:**
    - Risolto errore JavaScript `Cannot set properties of null (setting 'className')` ripristinando e proteggendo i riferimenti all'elemento [`ibkrStatusBadge`](app/templates/index.html:51) nell'header.
    - Risolto errore nell'analisi AI (`simulate_trade`): corretto import `asyncio` mancante in [`app/main.py`](app/main.py:17) e [`data/market_analyzer.py`](data/market_analyzer.py:14), aumentati i timeout di interrogazione modello per consentire il completamento dei payload complessi senza incorrere in TimeoutError.
    - Ottimizzata la gestione delle connessioni asincrone SQLite in [`data/database.py`](data/database.py:180) per prevenire deadlock durante le chiamate concorrenti.

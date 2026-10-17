@@ -197,3 +197,10 @@ def load_ai_prompts() -> dict:
 def load_symbols_config() -> dict:
     """Carica la configurazione dei simboli."""
     return _load_json_with_fallback("symbols.json")
+
+
+def save_symbols_config(data: dict) -> None:
+    """Salva la configurazione dei simboli nel file configurato."""
+    dest = CONF_STORAGE_DIR / "symbols.json"
+    with open(dest, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)

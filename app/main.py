@@ -31,6 +31,7 @@ from app.config import (
     get_settings,
     load_ai_prompts,
     load_symbols_config,
+    save_symbols_config,
     load_trading_params,
 )
 from app.models import HealthResponse, StatusResponse
@@ -585,6 +586,157 @@ async def get_trading_params() -> dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Impossibile caricare i parametri di trading",
         )
+
+
+class AddSymbolRequest(BaseModel):
+    symbol: str
+    description: Optional[str] = None
+    asset_class: Optional[str] = "stock"
+    ib_exchange: Optional[str] = "SMART"
+    ib_sec_type: Optional[str] = "STK"
+    ib_currency: Optional[str] = "USD"
+    unit: Optional[str] = "shares"
+    budget: Optional[float] = 5000.0
+
+
+@app.get(
+    "/api/symbols/search",
+    summary="Ricerca simboli/stock/commodity per nome, ticker o ISIN",
+    tags=["Simboli"],
+)
+async def search_market_symbols(q: str) -> dict[str, Any]:
+    """Cerca asset su Yahoo Finance e restituisce risultati pronti per l'aggiunta a portafoglio."""
+    import urllib.request
+    import urllib.parse
+    import json
+    query = q.strip()
+    if not query:
+        return {"results": []}
+
+    results = []
+    try:
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}&quotesCount=8&newsCount=0"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            for item in data.get("quotes", []):
+                sym = item.get("symbol")
+                if not sym:
+                    continue
+                quote_type = item.get("quoteType", "").upper()
+                asset_class = "stock"
+                sec_type = "STK"
+                if "COMMODITY" in quote_type or "FUTURE" in quote_type:
+                    asset_class = "commodity"
+                    sec_type = "FUT"
+                elif "ETF" in quote_type or "MUTUALFUND" in quote_type:
+                    asset_class = "etf"
+                    sec_type = "STK"
+                elif "CURRENCY" in quote_type or "FOREX" in quote_type:
+                    asset_class = "forex"
+                    sec_type = "CASH"
+
+                results.append({
+                    "symbol": sym,
+                    "name": item.get("shortname") or item.get("longname") or sym,
+                    "exchange": item.get("exchange", "SMART"),
+                    "type": quote_type or "EQUITY",
+                    "asset_class": asset_class,
+                    "sec_type": sec_type,
+                    "currency": item.get("currency", "USD"),
+                })
+    except Exception as e:
+        logger.warning("Errore ricerca simboli Yahoo", error=str(e))
+
+    return {"results": results}
+
+
+@app.get(
+    "/api/symbols/quote/{symbol}",
+    summary="Recupera quotazione rapida di un simbolo da Yahoo o IBKR",
+    tags=["Simboli"],
+)
+async def get_symbol_quote(symbol: str) -> dict[str, Any]:
+    """Restituisce ultimo prezzo, valuta e variazione percentuale."""
+    import urllib.request
+    import urllib.parse
+    import json
+    clean_sym = symbol.strip().upper()
+    try:
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(clean_sym)}?interval=1d&range=1d"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            meta = data["chart"]["result"][0]["meta"]
+            price = meta.get("regularMarketPrice") or meta.get("chartPreviousClose")
+            prev_close = meta.get("chartPreviousClose") or price
+            chg_pct = round(((price - prev_close) / prev_close * 100), 2) if prev_close else 0.0
+            return {
+                "symbol": clean_sym,
+                "price": price,
+                "currency": meta.get("currency", "USD"),
+                "exchange": meta.get("exchangeName", "SMART"),
+                "change_pct": chg_pct,
+                "high": meta.get("regularMarketDayHigh"),
+                "low": meta.get("regularMarketDayLow"),
+                "success": True
+            }
+    except Exception as e:
+        logger.warning(f"Errore recupero quote per {clean_sym}", error=str(e))
+        return {
+            "symbol": clean_sym,
+            "price": None,
+            "currency": "USD",
+            "exchange": "SMART",
+            "change_pct": 0.0,
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.post(
+    "/api/symbols/add",
+    summary="Aggiunge un nuovo simbolo alla configurazione dei simboli tradabili",
+    tags=["Simboli"],
+)
+async def add_symbol(req: AddSymbolRequest) -> dict[str, Any]:
+    """Aggiunge o aggiorna un simbolo nella configurazione e imposta il suo budget."""
+    cfg = load_symbols_config()
+    symbols_map = cfg.setdefault("symbols", {})
+    sym = req.symbol.strip().upper()
+
+    unit = req.unit or ("oz" if req.asset_class == "commodity" else "shares")
+    symbols_map[sym] = {
+        "symbol": sym,
+        "ib_symbol": sym,
+        "ib_exchange": req.ib_exchange or "SMART",
+        "ib_sec_type": req.ib_sec_type or ("CFD" if req.asset_class == "commodity" else "STK"),
+        "ib_currency": req.ib_currency or "USD",
+        "description": req.description or sym,
+        "asset_class": req.asset_class or "stock",
+        "pip_size": 0.01,
+        "tick_size": 0.01,
+        "contract_size": 1.0,
+        "unit": unit,
+        "allow_fractional": False,
+        "margin_requirement_pct": 25.0 if req.asset_class != "commodity" else 5.0,
+        "enabled": True,
+        "priority": len(symbols_map) + 1,
+    }
+
+    try:
+        save_symbols_config(cfg)
+    except Exception as e:
+        logger.error("Errore salvataggio symbols.json", error=str(e))
+        raise HTTPException(status_code=500, detail="Impossibile salvare il nuovo simbolo")
+
+    # Salva anche il budget predefinito via scalping manager
+    if req.budget is not None and req.budget > 0:
+        from strategy.scalping_strategy import get_scalping_manager
+        mgr = get_scalping_manager()
+        await mgr.set_symbol_budget(sym, float(req.budget))
+
+    return {"success": True, "symbol": sym, "config": symbols_map[sym]}
 
 
 @app.get(

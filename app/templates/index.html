@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tradest - AI Trading Bot Dashboard</title>
+  <title>Tradest - AI Trading Bot & Portfolio Manager</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -27,31 +27,56 @@
   <style>
     body { background-color: #0b1120; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
     .card { background: #1e293b; border: 1px solid #334155; }
+    .card-accent { background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); border: 1px solid #3b82f633; }
     .input-field { background: #0f172a; border: 1px solid #334155; color: #f8fafc; }
     .input-field:focus { border-color: #38bdf8; outline: none; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #0f172a; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .ticker-logo { width: 28px; height: 28px; border-radius: 8px; object-fit: contain; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <header class="card border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
+  <!-- Header Superiore Globale -->
+  <header class="card border-b px-6 py-3.5 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-slate-900/90">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
         <i class="fa-solid fa-chart-line text-lg"></i>
       </div>
       <div>
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          Tradest <span class="text-xs font-semibold px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">AI Bot</span>
+          Tradest <span class="text-xs font-semibold px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">AI Pro Bot</span>
         </h1>
-        <p class="text-xs text-slate-400">Trading Automatico XAUUSD con Google Gemini & IBKR</p>
+        <p class="text-[11px] text-slate-400">Piattaforma Scalping & Portfolio Manager Intelligente</p>
       </div>
     </div>
 
-    <!-- Status badges -->
+    <!-- Navigazione Schermate / Tab Principali -->
+    <nav class="hidden md:flex items-center gap-1.5 bg-slate-950/70 p-1.5 rounded-2xl border border-slate-800">
+      <button onclick="switchMainScreen('dashboard')" id="nav_dashboard" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow">
+        <i class="fa-solid fa-gauge-high"></i> Dashboard & Scalping
+      </button>
+      <button onclick="switchMainScreen('portfolio')" id="nav_portfolio" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+        <i class="fa-solid fa-wallet"></i> Portafoglio Reale
+      </button>
+      <button onclick="switchMainScreen('search')" id="nav_search" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+        <i class="fa-solid fa-magnifying-glass text-amber-400"></i> Cerca Asset / Titoli
+      </button>
+      <button onclick="switchMainScreen('configs')" id="nav_configs" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-indigo-400"></i> Gateway & Credenziali
+      </button>
+    </nav>
+
+    <!-- Status Badges & Quick Action -->
     <div class="flex items-center gap-3">
+      <button onclick="openSearchModal()" class="md:hidden p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs border border-slate-700">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
+
       <div id="ibkrStatusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-slate-400 border border-slate-700">
         <i class="fa-solid fa-server"></i>
-        <span id="ibkrStatusText">IBKR: Non connesso</span>
+        <span id="ibkrStatusText">IBKR: Sync...</span>
       </div>
 
       <div id="botStatusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
@@ -61,485 +86,734 @@
 
       <div id="geminiStatusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30">
         <i class="fa-brands fa-google"></i>
-        <span id="geminiStatusText">Gemini: Non configurato</span>
+        <span id="geminiStatusText">AI: Init...</span>
       </div>
+
+      <button onclick="emergencyStop()" class="bg-rose-600/90 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shadow-lg shadow-rose-600/30">
+        <i class="fa-solid fa-hand"></i> Stop Urgente
+      </button>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+  <!-- Navigazione Mobile Inferiore -->
+  <div class="md:hidden flex items-center justify-around bg-slate-900 border-b border-slate-800 p-2 text-xs">
+    <button onclick="switchMainScreen('dashboard')" class="text-sky-400 font-bold flex flex-col items-center gap-1">
+      <i class="fa-solid fa-gauge-high"></i> Dashboard
+    </button>
+    <button onclick="switchMainScreen('portfolio')" class="text-slate-400 hover:text-white flex flex-col items-center gap-1">
+      <i class="fa-solid fa-wallet"></i> Portafoglio
+    </button>
+    <button onclick="switchMainScreen('search')" class="text-amber-400 hover:text-white flex flex-col items-center gap-1">
+      <i class="fa-solid fa-magnifying-glass"></i> Cerca
+    </button>
+    <button onclick="switchMainScreen('configs')" class="text-indigo-400 hover:text-white flex flex-col items-center gap-1">
+      <i class="fa-solid fa-sliders"></i> Gateway
+    </button>
+  </div>
 
-    <!-- Configurazione Google Gemini / Motore AI -->
-    <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
-        <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+  <!-- Contenitore Principale delle Schermate -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- ========================================================================= -->
+    <!-- SCHERMATA 1: DASHBOARD PRINCIPALE (QUADRO GENERALE, PORTAFOGLIO & SCALPING) -->
+    <!-- ========================================================================= -->
+    <div id="screen_dashboard" class="space-y-6">
+
+      <!-- QUADRO GENERALE: SITUAZIONE PORTAFOGLIO & LAVORI IN CORSO -->
+      <div class="card-accent rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4 mb-4">
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
-              <i class="fa-solid fa-microchip text-lg"></i>
+            <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30 shadow-inner">
+              <i class="fa-solid fa-shield-halved text-lg"></i>
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-white">Motore AI per il Trading - Connessione & Modelli</h2>
-              <p class="text-xs text-slate-400">Configura il gateway AI (Omniroute locale o Google AI Studio) per le scelte di trade</p>
+              <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                Quadro Generale Portafoglio & Trading Live
+                <span id="overviewModeBadge" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PAPER</span>
+              </h2>
+              <p class="text-xs text-slate-400">Account IBKR: <span id="overviewAccountId" class="font-mono text-sky-300 font-semibold">-</span> | Sincronizzato con Interactive Brokers</p>
             </div>
           </div>
-          <span id="providerBadge" class="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold">Omniroute Gateway</span>
+
+          <div class="flex items-center gap-2">
+            <button onclick="loadPortfolioData()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 border border-slate-700">
+              <i class="fa-solid fa-arrows-rotate"></i> Aggiorna Saldi
+            </button>
+            <button onclick="switchMainScreen('portfolio')" class="px-3 py-1.5 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 text-xs font-semibold transition flex items-center gap-1.5 border border-sky-500/40">
+              <i class="fa-solid fa-wallet"></i> Vista Portafoglio Completa
+            </button>
+          </div>
         </div>
 
-        <!-- Form Selezione Provider, Endpoint e Modello -->
-        <div class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Provider AI</label>
-              <select id="aiProviderSelect" onchange="onProviderChange()" class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium">
-                <option value="omniroute">Omniroute / Antigravity Gateway (Consigliato - Zero 429)</option>
-                <option value="google">Google AI Studio REST (Cloud Diretto)</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Endpoint Base URL</label>
-              <input type="text" id="aiBaseUrlInput" value="http://192.168.1.212:9292/v1"
-                class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-mono" />
-            </div>
+        <!-- Metric Cards Saldi Portafoglio Reale -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-5">
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">Valore Totale</span>
+            <span id="overviewNetLiq" class="text-emerald-400 font-mono font-bold text-sm sm:text-base">€0.00</span>
           </div>
-
-          <!-- Campo API Key: visibile solo se Google AI Studio o se specificato -->
-          <div id="apiKeyContainer" class="hidden">
-            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
-              <span>Google Gemini API Key</span>
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 transition text-[11px] flex items-center gap-1">
-                Ottieni API Key su Google AI Studio <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-              </a>
-            </label>
-            <div class="relative">
-              <input type="password" id="geminiApiKeyInput" placeholder="Inserisci la tua Google API Key (AIzaSy...)"
-                class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-mono tracking-wider pr-10" />
-              <button onclick="toggleKeyVisibility()" type="button" class="absolute right-3 top-2.5 text-slate-400 hover:text-white">
-                <i id="keyEyeIcon" class="fa-regular fa-eye"></i>
-              </button>
-            </div>
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">Cash Disponibile</span>
+            <span id="overviewCash" class="text-sky-400 font-mono font-bold text-sm sm:text-base">€0.00</span>
           </div>
-
-          <!-- Modello Selezionabile dinamicamente -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
-                <span>Modello Gemini Selezionato</span>
-                <span id="modelLoadingSpinner" class="text-sky-400 text-xs hidden"><i class="fa-solid fa-spinner fa-spin"></i> Ricerca modelli...</span>
-              </label>
-              <select id="geminiModelSelect" class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium">
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Consigliato - Nuova Quota)</option>
-                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Ultra veloce per scalping)</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Temperatura / Creatività</label>
-              <input type="number" id="geminiTempInput" step="0.1" min="0.0" max="1.0" value="0.2"
-                class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium" />
-              <span class="text-[11px] text-slate-400">Consigliato: 0.1 - 0.3 per coerenza finanziaria</span>
-            </div>
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">Buying Power</span>
+            <span id="overviewBuyingPower" class="text-amber-400 font-mono font-bold text-sm sm:text-base">€0.00</span>
           </div>
-
-          <!-- Pulsanti Azione Gemini -->
-          <div class="flex flex-wrap gap-3 pt-2">
-            <button onclick="saveGeminiConfig()" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition flex items-center gap-2 shadow-lg shadow-sky-600/25">
-              <i class="fa-solid fa-floppy-disk"></i> Salva Configurazione
-            </button>
-
-            <button onclick="fetchModelsFromGoogle()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center gap-2">
-              <i class="fa-solid fa-rotate"></i> Aggiorna Modelli dal Provider
-            </button>
-
-            <button onclick="testGeminiConnection()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-600/25">
-              <i class="fa-solid fa-bolt"></i> Test Connessione Live
-            </button>
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">P&L Non Realizzato</span>
+            <span id="overviewUnPnL" class="font-mono font-bold text-sm sm:text-base text-slate-400">€0.00</span>
           </div>
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">P&L Chiuso Oggi</span>
+            <span id="overviewRealPnL" class="font-mono font-bold text-sm sm:text-base text-slate-400">€0.00</span>
+          </div>
+          <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px] font-medium">Margine Utilizzato</span>
+            <span id="overviewMargin" class="text-indigo-400 font-mono font-bold text-sm sm:text-base">€0.00</span>
+          </div>
+        </div>
 
-          <!-- Box Esito Test -->
-          <div id="testResultBox" class="hidden p-4 rounded-xl text-xs font-mono border"></div>
+        <!-- Lavori in Corso & Posizioni Attive su Singola Riga -->
+        <div class="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="font-semibold text-white">Stato Lavori in Corso:</span>
+            <span id="overviewActiveJobsSummary" class="text-slate-300">Nessun bot di trading attivo al momento</span>
+          </div>
+          <div class="flex items-center gap-3 text-slate-400">
+            <span>Posizioni Aperte: <b id="overviewOpenPositionsCount" class="text-white">0</b></span>
+            <span>•</span>
+            <span>Ordini Pendenti: <b id="overviewOpenOrdersCount" class="text-white">0</b></span>
+            <span>•</span>
+            <span>Trade Oggi: <b id="overviewDailyTradesCount" class="text-white">0</b></span>
+          </div>
         </div>
       </div>
 
-      <!-- Sezione: Configurazione Interactive Brokers -->
-    <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
-            <i class="fa-solid fa-building-columns text-lg"></i>
-          </div>
+      <!-- FRAME PRINCIPALE SCALPING: BARRA TITOLI A TAB EVIDENTI CON ICONE VERE -->
+      <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
           <div>
-            <h2 class="text-lg font-semibold text-white">Interactive Brokers - Credenziali Account</h2>
-            <p class="text-xs text-slate-400">Configura username, password e modalità trading (Paper/Live) per accedere al portafoglio IBKR</p>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Postazione Scalping per Titolo
+            </h2>
+            <p class="text-xs text-slate-400">Seleziona il titolo per impostare il budget allocato, eseguire l'analisi AI e avviare il trading automatico</p>
           </div>
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Username IBKR</label>
-          <input type="text" id="ibkrUsernameInput" value="lhungq693" placeholder="lhungq693"
-            class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Password IBKR</label>
-          <div class="relative">
-            <input type="password" id="ibkrPasswordInput" value="secretpaper" placeholder="secretpaper"
-              class="input-field w-full px-4 py-2.5 pr-12 rounded-xl text-sm font-medium" />
-            <button type="button" onclick="toggleIBKRPasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition">
-              <i id="ibkrPwEyeIcon" class="fa-regular fa-eye"></i>
+          <div class="flex items-center gap-2">
+            <button onclick="openSearchModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl font-semibold text-xs transition flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Aggiungi Altro Titolo
             </button>
           </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Modalità Trading</label>
-          <select id="ibkrTradingModeSelect" class="input-field w-full px-4 py-2.5 rounded-xl text-sm font-medium">
-            <option value="paper">📄 Paper Trading (Simulazione)</option>
-            <option value="live">💰 Live Trading (Reale)</option>
-          </select>
-          <span class="text-[11px] text-emerald-400 mt-1 block"><i class="fa-solid fa-circle-check"></i> Credenziali precompilate: <b>lhungq693</b> / <b>secretpaper</b> per accesso al conto demo Paper Trading</span>
-        </div>
-
-        <details class="text-xs">
-          <summary class="cursor-pointer text-slate-400 hover:text-slate-200 font-medium">⚙️ Avanzato: Host e Porta Gateway</summary>
-          <div class="mt-3 space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Host Gateway</label>
-              <input type="text" id="ibkrHostInput" value="192.168.1.212"
-                class="input-field w-full px-3 py-2 rounded-lg text-xs" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Porta Gateway</label>
-              <input type="number" id="ibkrPortInput" value="4004"
-                class="input-field w-full px-3 py-2 rounded-lg text-xs" />
-            </div>
-          </div>
-        </details>
-
-        <div class="flex flex-wrap gap-3 pt-2">
-          <button onclick="saveIBKRConfig()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-600/25">
-            <i class="fa-solid fa-save"></i> Salva Configurazione IBKR
-          </button>
-
-          <button onclick="testIBKRConnection()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-emerald-600/25">
-            <i class="fa-solid fa-plug"></i> Test Connessione Gateway
-          </button>
-
-          <button onclick="loadPortfolioData()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center gap-2">
-            <i class="fa-solid fa-wallet"></i> Carica Portfolio
-          </button>
-        </div>
-
-        <div id="ibkrTestResultBox" class="hidden p-4 rounded-xl text-xs font-mono border"></div>
-
-        <div id="portfolioDataBox" class="hidden mt-4 p-5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
-              <i class="fa-solid fa-wallet text-blue-400"></i> Dati Portafoglio & Saldi IBKR
-            </h3>
-            <span class="text-xs text-slate-400">Modalità: <span id="portfolioTradingMode" class="font-bold text-sky-400">PAPER</span></span>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">Account ID</span>
-              <span id="portfolioAccountId" class="text-white font-mono font-bold text-sm">-</span>
-            </div>
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">Valore Totale</span>
-              <span id="portfolioNetLiq" class="text-emerald-400 font-mono font-bold text-sm">€0.00</span>
-            </div>
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">Cash Disponibile</span>
-              <span id="portfolioCash" class="text-sky-400 font-mono font-bold text-sm">€0.00</span>
-            </div>
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">Buying Power</span>
-              <span id="portfolioBuyingPower" class="text-amber-400 font-mono font-bold text-sm">€0.00</span>
-            </div>
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">P&L Non Realizzato</span>
-              <span id="portfolioUnrealizedPnL" class="font-mono font-bold text-sm">€0.00</span>
-            </div>
-            <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/50">
-              <span class="text-slate-400 block text-[11px]">Margine Utilizzato</span>
-              <span id="portfolioMarginUsed" class="text-slate-300 font-mono font-bold text-sm">€0.00</span>
-            </div>
-          </div>
-
-          <!-- Tabella Posizioni Dettagliate -->
-          <div class="mt-4 pt-3 border-t border-slate-800">
-            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-              <span><i class="fa-solid fa-layer-group text-sky-400 mr-1.5"></i> Posizioni nel Portafoglio</span>
-              <span id="positionsCountBadge" class="text-[11px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20 font-mono">0 posizioni</span>
-            </h4>
-            <div class="overflow-x-auto rounded-xl border border-slate-800">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 font-semibold">
-                  <tr>
-                    <th class="py-2.5 px-3">Strumento</th>
-                    <th class="py-2.5 px-3">Tipo / Borsa</th>
-                    <th class="py-2.5 px-3">Direzione</th>
-                    <th class="py-2.5 px-3 text-right">Quantità</th>
-                    <th class="py-2.5 px-3 text-right">Prezzo Carico</th>
-                    <th class="py-2.5 px-3 text-right">Prezzo Mercato</th>
-                    <th class="py-2.5 px-3 text-right">Valore Mercato</th>
-                    <th class="py-2.5 px-3 text-right">P&L Non Realizzato</th>
-                  </tr>
-                </thead>
-                <tbody id="positionsTableBody" class="divide-y divide-slate-800 font-mono">
-                  <tr>
-                    <td colspan="8" class="text-center py-4 text-slate-500 font-sans">Nessuna posizione aperta o premi "Carica Portfolio"</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Tabella Esecuzioni / Transazioni -->
-          <div class="mt-4 pt-3 border-t border-slate-800">
-            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-              <span><i class="fa-solid fa-receipt text-indigo-400 mr-1.5"></i> Transazioni & Ordini Eseguiti</span>
-              <span id="executionsCountBadge" class="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20 font-mono">0 transazioni</span>
-            </h4>
-            <div class="overflow-x-auto rounded-xl border border-slate-800">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 font-semibold">
-                  <tr>
-                    <th class="py-2.5 px-3">ID Transazione</th>
-                    <th class="py-2.5 px-3">Strumento</th>
-                    <th class="py-2.5 px-3">Operazione</th>
-                    <th class="py-2.5 px-3 text-right">Quantità</th>
-                    <th class="py-2.5 px-3 text-right">Prezzo Eseguito</th>
-                    <th class="py-2.5 px-3 text-right">Commissione</th>
-                    <th class="py-2.5 px-3 text-right">P&L Realizzato</th>
-                  </tr>
-                </thead>
-                <tbody id="executionsTableBody" class="divide-y divide-slate-800 font-mono">
-                  <tr>
-                    <td colspan="7" class="text-center py-4 text-slate-500 font-sans">Nessuna transazione recente registrata</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sezione: Test Comunicazione Scelte di Trade con Gemini -->
-    <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
-      <div class="flex flex-wrap items-center justify-between border-b border-slate-700/60 pb-4 gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
-            <i class="fa-solid fa-brain text-lg"></i>
-          </div>
-          <div>
-            <h2 class="text-lg font-semibold text-white">Analisi Tecnica & Strategia di Scalping Multi-Asset</h2>
-            <p class="text-xs text-slate-400">Passa da un tab all'altro per analizzare ciascun titolo a portafoglio, impostare il budget e avviare il trading parallelo</p>
+        <!-- Barra Tab Titoli Dinamica con Loghi Reali -->
+        <div class="space-y-2">
+          <label class="block text-xs font-medium text-slate-400">Titoli nel Portafoglio / Monitorati:</label>
+          <div id="symbolTabsContainer" class="flex flex-wrap gap-2.5 pb-1">
+            <!-- I pulsanti delle tab vengono generati dinamicamente da renderSymbolTabs() -->
           </div>
         </div>
 
-        <!-- Budget & Bottone di Analisi -->
-        <div class="flex flex-wrap items-center gap-3">
-          <div>
-            <label class="block text-[11px] text-slate-400 font-semibold uppercase mb-1 flex items-center justify-between">
-              <span>Budget <span id="budgetSymbolHint" class="text-sky-400">XAUUSD</span></span>
-              <span id="budgetSavedBadge" class="text-[10px] text-emerald-400 hidden font-mono">Salvato</span>
-            </label>
-            <div class="relative">
-              <span class="absolute left-3 top-2 text-slate-400 text-xs">$</span>
-              <input type="number" id="tradeBudgetInput" value="5000" step="500" min="500"
-                class="input-field pl-7 pr-3 py-1.5 rounded-xl text-sm font-mono w-28 font-bold" />
-            </div>
-          </div>
-
-          <button onclick="simulateTradeAnalysis()" id="btnSimulateTrade" class="mt-4 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-sky-500/25">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Analizza <span id="btnSymbolLabel">XAUUSD</span> & Genera Strategia
-          </button>
-        </div>
-      </div>
-
-      <!-- Barra dei Tab per Titolo a Portafoglio -->
-      <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto" id="symbolTabsBar">
-        <button onclick="switchSymbolTab('XAUUSD')" id="tab_XAUUSD" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow-md shadow-sky-600/30">
-          <i class="fa-solid fa-coins text-amber-400"></i> XAUUSD
-          <span id="tabBadge_XAUUSD" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        </button>
-        <button onclick="switchSymbolTab('NVDA')" id="tab_NVDA" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
-          <i class="fa-solid fa-microchip text-emerald-400"></i> NVDA
-          <span id="tabBadge_NVDA" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        </button>
-        <button onclick="switchSymbolTab('SPCX')" id="tab_SPCX" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
-          <i class="fa-solid fa-chart-pie text-indigo-400"></i> SPCX
-          <span id="tabBadge_SPCX" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        </button>
-        <button onclick="switchSymbolTab('IB1T')" id="tab_IB1T" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white">
-          <i class="fa-solid fa-building-columns text-rose-400"></i> IB1T
-          <span id="tabBadge_IB1T" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        </button>
-      </div>
-
-      <!-- Output Decisione AI -->
-      <div id="aiDecisionContainer" class="hidden space-y-4">
-        <!-- Badge Contesto 30d e 7d -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-              <i class="fa-solid fa-chart-line text-sky-400"></i> Trend Macro Ultimi 30 Giorni
-            </span>
-            <div id="aiTrend30dVal" class="text-sm font-semibold text-slate-200 mt-1">-</div>
-            <div id="aiRange30dVal" class="text-xs font-mono text-slate-400 mt-0.5">-</div>
-          </div>
-          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-              <i class="fa-solid fa-calendar-week text-emerald-400"></i> Focus Ultima Settimana (7 Giorni)
-            </span>
-            <div id="aiTrend7dVal" class="text-sm font-semibold text-slate-200 mt-1">-</div>
-            <div id="aiRange7dVal" class="text-xs font-mono text-slate-400 mt-0.5">-</div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Azione Strategica</span>
-            <div id="aiActionVal" class="text-2xl font-black mt-1">HOLD</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Confidenza AI</span>
-            <div id="aiConfidenceVal" class="text-2xl font-black text-sky-400 mt-1">0%</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Sentiment & Setup</span>
-            <div id="aiSentimentVal" class="text-base font-bold text-slate-200 mt-1">NEUTRAL</div>
-            <div id="aiSetupVal" class="text-xs text-slate-400 truncate mt-0.5">Scalping Setup</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Livelli Operativi</span>
-            <div id="aiLevelsVal" class="text-xs font-mono text-slate-300 mt-1">SL: - | TP: -</div>
-            <div id="aiSizeVal" class="text-xs font-mono text-emerald-400 mt-0.5">Size: - oz</div>
-          </div>
-        </div>
-
-        <!-- Box Posizione Rilevata nel Portafoglio IBKR -->
-        <div class="p-3.5 rounded-xl bg-sky-950/40 border border-sky-800/40 flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <i class="fa-solid fa-wallet text-sky-400 text-sm"></i>
-            <div>
-              <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold block">Posizione Esistente XAUUSD nel Portafoglio IBKR</span>
-              <span id="aiExistingPosVal" class="text-xs font-mono text-sky-200 font-medium">-</span>
-            </div>
-          </div>
-          <span id="aiPosBadge" class="text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-300 border border-slate-700">Verificato</span>
-        </div>
-
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span class="text-xs font-semibold text-slate-400">Ragionamento Strategico di Scalping:</span>
-          <p id="aiReasoningVal" class="text-sm text-slate-200 mt-1.5 leading-relaxed font-sans"></p>
-        </div>
-
-        <!-- Sezione Controllo Bot & Console Log Verbosi per il Titolo Selezionato -->
-        <div class="pt-2 border-t border-slate-800/80 space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+        <!-- Frame di Lancio Scalping, Budget e Controlli Titolo Selezionato -->
+        <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div class="flex items-center gap-3">
-              <div id="botSymbolStatusDot" class="w-3 h-3 rounded-full bg-slate-600"></div>
+              <div id="activeSymbolLogoContainer" class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center p-2 border border-slate-700 shadow-md">
+                <!-- Immagine Logo o Icona -->
+                <i class="fa-solid fa-coins text-2xl text-amber-400"></i>
+              </div>
               <div>
-                <span id="botSymbolStatusText" class="text-sm font-semibold text-white">Bot per Titolo: INATTIVO</span>
-                <p class="text-xs text-slate-400">Opera in background continuo sul budget allocato, anche a browser chiuso</p>
+                <div class="flex items-center gap-2">
+                  <h3 id="currentSymbolNameHeader" class="text-lg font-black text-white">XAUUSD</h3>
+                  <span id="currentSymbolAssetBadge" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">COMMODITY</span>
+                  <span id="currentSymbolStatusBadge" class="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                    <span id="botSymbolStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span id="botSymbolStatusText">Inattivo</span>
+                  </span>
+                </div>
+                <p id="currentSymbolDescHeader" class="text-xs text-slate-400">Gold Spot (Oro) - CFD su SMART (USD)</p>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="toggleSymbolBot(true)" id="btnStartSymbolBot" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-600/25">
-                <i class="fa-solid fa-play"></i> Avvia Trading su questo Titolo
+
+            <!-- Prezzo Live & Variazione -->
+            <div class="flex items-center gap-4 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase font-mono">Ultimo Prezzo</span>
+                <span id="currentSymbolLivePrice" class="text-base font-bold text-white font-mono">$0.00</span>
+              </div>
+              <div class="border-l border-slate-800 pl-4">
+                <span class="text-[10px] text-slate-500 block uppercase font-mono">Variazione 24h</span>
+                <span id="currentSymbolLiveChange" class="text-sm font-bold text-slate-400 font-mono">0.00%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- PARAMETRO BUDGET & CONTROLLI DI AVVIO/STOP -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <!-- Input Budget Allocato -->
+            <div class="md:col-span-4 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-semibold text-slate-200">
+                  <i class="fa-solid fa-money-bill-wave text-emerald-400"></i> Budget per questo Titolo (€/$)
+                </label>
+                <span id="budgetSavedBadge" class="hidden text-[10px] text-emerald-400 font-mono">✓ Salvato</span>
+              </div>
+              <div class="relative">
+                <span class="absolute left-3.5 top-2.5 text-slate-400 font-mono text-sm">$</span>
+                <input type="number" id="tradeBudgetInput" value="5000" step="100" min="100"
+                  onchange="saveBudgetForSymbol()"
+                  class="input-field w-full pl-8 pr-4 py-2.5 rounded-xl text-sm font-mono font-bold" />
+              </div>
+              <p class="text-[11px] text-slate-400">Budget massimo utilizzabile per le operazioni di scalping su questo titolo.</p>
+            </div>
+
+            <!-- Pulsanti Analisi AI e Avvio Bot -->
+            <div class="md:col-span-8 flex flex-wrap gap-2.5">
+              <button id="btnSimulateTrade" onclick="simulateTradeAnalysis()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-200"></i> Analizza & Strategia Scalping AI
               </button>
-              <button onclick="toggleSymbolBot(false)" id="btnStopSymbolBot" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-rose-600/25">
+
+              <button id="btnStartSymbolBot" onclick="startSymbolBot()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg shadow-emerald-600/30">
+                <i class="fa-solid fa-play"></i> Avvia Bot per <span class="activeSymLabel">XAUUSD</span>
+              </button>
+
+              <button id="btnStopSymbolBot" onclick="stopSymbolBot()" disabled class="bg-rose-700/60 hover:bg-rose-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 opacity-50 cursor-not-allowed">
                 <i class="fa-solid fa-stop"></i> Ferma Bot
               </button>
             </div>
           </div>
 
-          <!-- Frame Operazioni Effettivamente Svolte (LONG / SHORT) -->
-          <div class="space-y-2 bg-slate-900/80 p-4 rounded-xl border border-slate-800 shadow-sm">
-            <div class="flex items-center justify-between text-xs text-slate-300">
-              <span class="flex items-center gap-2 font-bold text-emerald-400">
-                <i class="fa-solid fa-clipboard-check text-emerald-400"></i> Operazioni Svolte Effettivamente (<span id="opsSymbolLabel" class="font-mono text-emerald-300">XAUUSD</span>)
+          <!-- SCHEDA STRATEGIA AI & INDICATORI TECNICI CALCOLATI -->
+          <div class="border-t border-slate-800 pt-4 space-y-4">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-brain text-sky-400"></i> Ultima Decisione & Strategia AI per <span class="activeSymLabel text-sky-300">XAUUSD</span>
               </span>
-              <div class="flex items-center gap-3">
-                <span id="opsCountBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">0 operazioni</span>
-                <button onclick="fetchBotOperations()" class="hover:text-white text-slate-400 transition text-[11px] flex items-center gap-1">
-                  <i class="fa-solid fa-rotate-right"></i> Aggiorna
-                </button>
+              <span id="aiStrategyTime" class="text-[11px] text-slate-500 font-mono">Nessuna analisi recente</span>
+            </div>
+
+            <!-- Verdetto Strategico Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Azione</span>
+                <div id="aiActionVal" class="text-xl font-black mt-1 text-slate-300">STANDBY</div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Confidenza AI</span>
+                <div id="aiConfidenceVal" class="text-xl font-black text-sky-400 mt-1">0%</div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Sentiment / Setup</span>
+                <div id="aiSentimentVal" class="text-sm font-bold text-slate-200 mt-1">NEUTRAL</div>
+                <div id="aiSetupVal" class="text-[11px] text-slate-400 truncate mt-0.5">Scalping Setup</div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Livelli Scalping</span>
+                <div id="aiLevelsVal" class="text-[11px] font-mono text-slate-300 mt-1">SL: - | TP: -</div>
+                <div id="aiSizeVal" class="text-[11px] font-mono text-emerald-400 mt-0.5">Entry: - | Size: -</div>
               </div>
             </div>
 
-            <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 mt-2">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 font-semibold text-[11px]">
+            <!-- Ragionamento Dettagliato AI & Posizione Rilevata -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div class="p-3.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                <span class="text-[11px] font-semibold text-slate-400 block mb-1">Ragionamento Strategico AI:</span>
+                <p id="aiReasoningVal" class="text-slate-300 leading-relaxed italic">Clicca su 'Analizza & Strategia Scalping AI' per generare l'analisi completa con il motore AI.</p>
+              </div>
+              <div class="p-3.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[11px] font-semibold text-slate-400">Verifica Posizione Esistente a Portafoglio:</span>
+                  <span id="aiPosBadge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400">Verifica...</span>
+                </div>
+                <p id="aiExistingPosVal" class="text-slate-300 font-mono text-[11px]">-</p>
+                <div class="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Trend 30d: <b id="aiTrend30dVal" class="text-white">-</b></span>
+                  <span>Trend 7d: <b id="aiTrend7dVal" class="text-white">-</b></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OPERAZIONI SVOLTE ED ESECUZIONI DEL TITOLO (FRAME RIASSUNTIVO ELEGANTE) -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-sky-400"></i> Operazioni Svolte dal Bot (<span class="activeSymLabel text-sky-300">XAUUSD</span>)
+            </h3>
+            <button onclick="fetchBotOperations()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+              <i class="fa-solid fa-rotate-right"></i> Aggiorna Operazioni
+            </button>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                <tr>
+                  <th class="px-4 py-2.5">Data & Ora</th>
+                  <th class="px-4 py-2.5">Azione</th>
+                  <th class="px-4 py-2.5">Titolo</th>
+                  <th class="px-4 py-2.5">Quantità</th>
+                  <th class="px-4 py-2.5">Prezzo Entry</th>
+                  <th class="px-4 py-2.5">Stop Loss</th>
+                  <th class="px-4 py-2.5">Take Profit</th>
+                  <th class="px-4 py-2.5">Stato / Dettagli</th>
+                </tr>
+              </thead>
+              <tbody id="botOperationsTableBody" class="divide-y divide-slate-800/60 bg-slate-900/50">
+                <tr>
+                  <td colspan="8" class="px-4 py-4 text-center text-slate-500 italic">Nessuna operazione registrata per questo titolo.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- LOG CONSOLE DI MERCATO & MONITORAGGIO IN BACKGROUND -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+            <span class="flex items-center gap-1.5 font-semibold">
+              <i class="fa-solid fa-terminal text-sky-400"></i> Console Log & Attività di Scalping (<span class="activeSymLabel text-sky-300 font-mono">XAUUSD</span>)
+            </span>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1 text-[11px] cursor-pointer">
+                <input type="checkbox" id="autoScrollLogs" checked class="rounded border-slate-700 bg-slate-800 text-sky-500" />
+                <span>Auto-scroll</span>
+              </label>
+              <button onclick="fetchBotLogs()" class="hover:text-white transition text-[11px]">
+                <i class="fa-solid fa-rotate-right"></i> Aggiorna
+              </button>
+            </div>
+          </div>
+          <div id="botConsoleLogs" class="h-48 overflow-y-auto bg-slate-950 text-slate-300 p-3 rounded-xl border border-slate-800 font-mono text-[11px] space-y-1 shadow-inner scrollbar-thin">
+            <div class="text-slate-500 italic">In attesa di eventi...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- SCHERMATA 2: PORTAFOGLIO COMPLETO & POSIZIONI APERTE IBKR -->
+    <!-- ========================================================================= -->
+    <div id="screen_portfolio" class="hidden space-y-6">
+      <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <i class="fa-solid fa-wallet text-xl"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">Portafoglio Interattivo Interactive Brokers</h2>
+              <p class="text-xs text-slate-400">Situazione dettagliata di liquidità, posizioni aperte, ordini pendenti ed esecuzioni storiche</p>
+            </div>
+          </div>
+          <button onclick="loadPortfolioData()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-arrows-rotate"></i> Sincronizza Adesso
+          </button>
+        </div>
+
+        <!-- Metric Saldi -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Account ID</span>
+            <span id="portfolioAccountId" class="text-white font-mono font-bold text-sm">-</span>
+          </div>
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Valore Totale</span>
+            <span id="portfolioNetLiq" class="text-emerald-400 font-mono font-bold text-sm">€0.00</span>
+          </div>
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Cash Disponibile</span>
+            <span id="portfolioCash" class="text-sky-400 font-mono font-bold text-sm">€0.00</span>
+          </div>
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Buying Power</span>
+            <span id="portfolioBuyingPower" class="text-amber-400 font-mono font-bold text-sm">€0.00</span>
+          </div>
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">P&L Non Realizzato</span>
+            <span id="portfolioUnPnL" class="font-mono font-bold text-sm text-slate-400">€0.00</span>
+          </div>
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Margine Utilizzato</span>
+            <span id="portfolioMargin" class="text-indigo-400 font-mono font-bold text-sm">€0.00</span>
+          </div>
+        </div>
+
+        <!-- TABELLA POSIZIONI APERTE -->
+        <div class="space-y-3 pt-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-briefcase text-emerald-400"></i> Posizioni Aperte a Mercato (<span id="portfolioPositionsCount">0</span>)
+            </h3>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                <tr>
+                  <th class="px-4 py-2.5">Asset / Simbolo</th>
+                  <th class="px-4 py-2.5">Tipo</th>
+                  <th class="px-4 py-2.5">Direzione</th>
+                  <th class="px-4 py-2.5">Quantità</th>
+                  <th class="px-4 py-2.5">Prezzo Entry</th>
+                  <th class="px-4 py-2.5">Prezzo Attuale</th>
+                  <th class="px-4 py-2.5">Valore di Mercato</th>
+                  <th class="px-4 py-2.5">P&L Non Realizzato</th>
+                </tr>
+              </thead>
+              <tbody id="portfolioPositionsTableBody" class="divide-y divide-slate-800/60 bg-slate-900/40">
+                <tr>
+                  <td colspan="8" class="px-4 py-5 text-center text-slate-500 italic">Nessuna posizione aperta attualmente a portafoglio.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TABELLA ORDINI PENDENTI & ESECUZIONI -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+          <!-- Ordini Pendenti -->
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-clock text-amber-400"></i> Ordini di Borsa Pendenti (<span id="portfolioOrdersCount">0</span>)
+            </h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-56 overflow-y-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px]">
                   <tr>
-                    <th class="py-2 px-3">Data e Ora</th>
-                    <th class="py-2 px-3">Tipo / Direzione</th>
-                    <th class="py-2 px-3">Azione</th>
-                    <th class="py-2 px-3 text-right">Quantità</th>
-                    <th class="py-2 px-3 text-right">Prezzo Esec.</th>
-                    <th class="py-2 px-3 text-right">Stop Loss</th>
-                    <th class="py-2 px-3 text-right">Take Profit</th>
-                    <th class="py-2 px-3 text-right">P&L</th>
-                    <th class="py-2 px-3">Stato & Dettagli</th>
+                    <th class="px-3 py-2">ID</th>
+                    <th class="px-3 py-2">Azione</th>
+                    <th class="px-3 py-2">Q.tà</th>
+                    <th class="px-3 py-2">Tipo</th>
+                    <th class="px-3 py-2">Prezzo Limite</th>
                   </tr>
                 </thead>
-                <tbody id="botOperationsTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                <tbody id="portfolioOrdersTableBody" class="divide-y divide-slate-800/60 bg-slate-900/40">
                   <tr>
-                    <td colspan="9" class="text-center py-4 text-slate-500 font-sans italic">Nessuna operazione registrata per questo asset</td>
+                    <td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessun ordine pendente.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Finestra Scorrevole Log Verbosi & Analisi di Mercato -->
+          <!-- Ultime Esecuzioni -->
           <div class="space-y-2">
-            <div class="flex items-center justify-between text-xs text-slate-400 px-1">
-              <span class="flex items-center gap-1.5 font-semibold">
-                <i class="fa-solid fa-terminal text-sky-400"></i> Log Completo Analisi & Monitoraggio Mercato (<span id="logSymbolLabel" class="text-sky-300 font-mono">XAUUSD</span>)
-              </span>
-              <div class="flex items-center gap-3">
-                <label class="flex items-center gap-1 text-[11px] cursor-pointer">
-                  <input type="checkbox" id="autoScrollLogs" checked class="rounded border-slate-700 bg-slate-800 text-sky-500" />
-                  <span>Auto-scroll</span>
-                </label>
-                <button onclick="fetchBotLogs()" class="hover:text-white transition text-[11px]">
-                  <i class="fa-solid fa-rotate-right"></i> Aggiorna
-                </button>
-              </div>
-            </div>
-            <div id="botConsoleLogs" class="h-60 overflow-y-auto bg-slate-950 text-slate-300 p-3.5 rounded-xl border border-slate-800 font-mono text-[11px] space-y-1.5 shadow-inner">
-              <div class="text-slate-500 italic">In attesa di eventi...</div>
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-check-double text-emerald-400"></i> Ultime Esecuzioni (<span id="portfolioExecsCount">0</span>)
+            </h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-56 overflow-y-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px]">
+                  <tr>
+                    <th class="px-3 py-2">Simbolo</th>
+                    <th class="px-3 py-2">Azione</th>
+                    <th class="px-3 py-2">Q.tà</th>
+                    <th class="px-3 py-2">Prezzo</th>
+                    <th class="px-3 py-2">P&L</th>
+                  </tr>
+                </thead>
+                <tbody id="portfolioExecsTableBody" class="divide-y divide-slate-800/60 bg-slate-900/40">
+                  <tr>
+                    <td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessuna esecuzione recente.</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <div>
-          <button onclick="document.getElementById('rawAiJson').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-white underline">
-            Mostra / Nascondi JSON raw
+
+    <!-- ========================================================================= -->
+    <!-- SCHERMATA 3: CERCA ASSET / COMMODITY / STOCK & AGGIUNGI AL TRADING -->
+    <!-- ========================================================================= -->
+    <div id="screen_search" class="hidden space-y-6">
+      <div class="card rounded-2xl p-6 space-y-6 shadow-xl">
+        <div class="flex items-center gap-3 border-b border-slate-700/60 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+            <i class="fa-solid fa-magnifying-glass text-lg"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-white">Ricerca Globale Mercato & Aggiunta a Portafoglio</h2>
+            <p class="text-xs text-slate-400">Cerca per nome azienda (es. Apple, Nvidia), Ticker (AAPL, NVDA, TSLA) o codice ISIN</p>
+          </div>
+        </div>
+
+        <!-- Barra di Ricerca -->
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
+            <input type="text" id="marketSearchInput" placeholder="Inserisci nome azienda, simbolo o codice ISIN (es: NVDA, Apple, US0378331005)..."
+              onkeydown="if(event.key === 'Enter') executeMarketSearch()"
+              class="input-field w-full pl-11 pr-4 py-3 rounded-xl text-sm" />
+          </div>
+          <button onclick="executeMarketSearch()" class="bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20">
+            <i class="fa-solid fa-search"></i> Cerca Asset
           </button>
-          <pre id="rawAiJson" class="hidden mt-2 p-4 bg-slate-950 text-emerald-400 rounded-xl text-xs font-mono overflow-x-auto border border-slate-800"></pre>
+        </div>
+
+        <!-- Risultati Ricerca -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span id="searchResultsLabel">Inserisci un termine di ricerca per trovare nuovi asset da tradare.</span>
+            <span id="searchSpinner" class="hidden text-sky-400"><i class="fa-solid fa-spinner fa-spin"></i> Ricerca in corso sui mercati...</span>
+          </div>
+
+          <div id="searchResultsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Popolato via JS con i risultati -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- SCHERMATA 4: CONFIGURAZIONI GATEWAY (AI OMNIROUTE/GOOGLE & IBKR) -->
+    <!-- ========================================================================= -->
+    <div id="screen_configs" class="hidden space-y-6">
+
+      <!-- Sottosezione 1: Configurazione Motore AI (Omniroute / Google) -->
+      <div class="card rounded-2xl p-6 space-y-5 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
+              <i class="fa-solid fa-microchip text-lg"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-white">1. Motore AI Decisionale - Connessione & Modelli</h2>
+              <p class="text-xs text-slate-400">Configura il gateway AI (Omniroute / Antigravity Gateway o Google AI Studio Cloud)</p>
+            </div>
+          </div>
+          <span id="providerBadge" class="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold">Omniroute Gateway</span>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Provider AI</label>
+              <select id="aiProviderSelect" onchange="onProviderChange()" class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-medium">
+                <option value="omniroute">Omniroute / Antigravity Gateway (Consigliato - Zero 429)</option>
+                <option value="google">Google AI Studio REST (Cloud Diretto)</option>
+              </select>
+            </div>
+            <div id="baseUrlContainer">
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Endpoint Gateway AI</label>
+              <input type="text" id="aiBaseUrlInput" value="http://192.168.1.212:9292/v1"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">API Key / Token AI</label>
+            <div class="relative">
+              <input type="password" id="geminiApiKeyInput" placeholder="Inserisci API Key..."
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono pr-10" />
+              <button type="button" onclick="toggleKeyVisibility()" class="absolute right-3 top-2.5 text-slate-400 hover:text-white transition">
+                <i id="keyEyeIcon" class="fa-regular fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-medium text-slate-300">Modello AI per il Trading</label>
+              <button onclick="fetchAvailableModels()" class="text-sky-400 hover:text-sky-300 text-xs flex items-center gap-1">
+                <i class="fa-solid fa-rotate text-[10px]"></i> Aggiorna Modelli
+              </button>
+            </div>
+            <select id="geminiModelSelect" class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono">
+              <option value="carlo-gemini">carlo-gemini (Default Antigravity / Omniroute)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            </select>
+          </div>
+
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button onclick="saveGeminiConfig()" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg shadow-sky-600/25">
+              <i class="fa-solid fa-save"></i> Salva Configurazione AI
+            </button>
+            <button onclick="testGeminiConnection()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-5 py-2.5 rounded-xl font-semibold text-xs transition flex items-center gap-2">
+              <i class="fa-solid fa-bolt"></i> Test Rapido Connessione AI
+            </button>
+          </div>
+
+          <div id="aiResultBox" class="hidden p-3 rounded-xl text-xs font-mono whitespace-pre-wrap"></div>
         </div>
       </div>
 
+      <!-- Sottosezione 2: Configurazione Interactive Brokers Gateway & Credenziali -->
+      <div class="card rounded-2xl p-6 space-y-5 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <i class="fa-solid fa-building-columns text-lg"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-white">2. Interactive Brokers Gateway & Credenziali</h2>
+              <p class="text-xs text-slate-400">Configura la connessione all'IB Gateway locale / container e salva le credenziali</p>
+            </div>
+          </div>
+          <span class="text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20 font-semibold">TWS / IB Gateway</span>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">IBKR Username</label>
+              <input type="text" id="ibkrUsernameInput" value="lhungq693"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">IBKR Password</label>
+              <input type="password" id="ibkrPasswordInput" value="secretpaper"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Modalità Trading</label>
+              <select id="ibkrTradingModeSelect" class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-medium">
+                <option value="paper">Paper Trading (Simulazione Protetta)</option>
+                <option value="live">Live Trading (Reale)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Host Gateway IBKR</label>
+              <input type="text" id="ibkrHostInput" value="192.168.1.212"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Porta Socket Gateway</label>
+              <input type="number" id="ibkrPortInput" value="4004"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button onclick="saveIBKRConfig()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg shadow-blue-600/25">
+              <i class="fa-solid fa-save"></i> Salva Credenziali & Host IBKR
+            </button>
+            <button onclick="testIBKRConnection()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition flex items-center gap-2 shadow-lg shadow-emerald-600/25">
+              <i class="fa-solid fa-plug"></i> Test Connessione IB Gateway
+            </button>
+          </div>
+
+          <div id="ibkrResultBox" class="hidden p-3 rounded-xl text-xs font-mono whitespace-pre-wrap"></div>
+        </div>
+      </div>
     </div>
 
   </main>
 
-  <!-- Footer -->
-  <footer class="border-t border-slate-800/80 px-6 py-4 text-center text-xs text-slate-500">
-    Tradest AI Trading Bot &copy; 2026 | Portainer Stack Port: <span class="font-mono text-slate-400">18881</span> | Config: <span class="font-mono text-slate-400">/srv/docker_conf/configs/tradest_conf</span>
+  <!-- Footer Informativo -->
+  <footer class="border-t border-slate-800 px-6 py-4 text-center text-xs text-slate-500 mt-auto">
+    Tradest AI Trading Platform &copy; 2026 | Porta Stack: <span class="font-mono text-slate-400">18881</span> | Volume: <span class="font-mono text-slate-400">/srv/docker_conf/configs/tradest_conf</span>
   </footer>
 
-  <!-- Script Dashboard -->
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT DASHBOARD & LOGIC CENTRALIZZATA -->
+  <!-- ========================================================================= -->
   <script>
+    // Mappa Simboli Noti e Loghi Aziendali Reali
+    const SYMBOL_LOGOS = {
+      'NVDA': {
+        name: 'NVIDIA Corp',
+        logo: 'https://s3-symbol-logo.tradingview.com/nvidia.svg',
+        fallbackIcon: 'fa-solid fa-microchip',
+        color: 'text-emerald-400'
+      },
+      'AAPL': {
+        name: 'Apple Inc.',
+        logo: 'https://s3-symbol-logo.tradingview.com/apple.svg',
+        fallbackIcon: 'fa-brands fa-apple',
+        color: 'text-slate-200'
+      },
+      'MSFT': {
+        name: 'Microsoft Corp',
+        logo: 'https://s3-symbol-logo.tradingview.com/microsoft.svg',
+        fallbackIcon: 'fa-brands fa-microsoft',
+        color: 'text-sky-400'
+      },
+      'AMZN': {
+        name: 'Amazon.com Inc.',
+        logo: 'https://s3-symbol-logo.tradingview.com/amazon.svg',
+        fallbackIcon: 'fa-brands fa-amazon',
+        color: 'text-amber-400'
+      },
+      'TSLA': {
+        name: 'Tesla Inc.',
+        logo: 'https://s3-symbol-logo.tradingview.com/tesla.svg',
+        fallbackIcon: 'fa-solid fa-bolt',
+        color: 'text-rose-400'
+      },
+      'META': {
+        name: 'Meta Platforms',
+        logo: 'https://s3-symbol-logo.tradingview.com/meta.svg',
+        fallbackIcon: 'fa-brands fa-meta',
+        color: 'text-blue-400'
+      },
+      'GOOGL': {
+        name: 'Alphabet Inc.',
+        logo: 'https://s3-symbol-logo.tradingview.com/alphabet.svg',
+        fallbackIcon: 'fa-brands fa-google',
+        color: 'text-amber-400'
+      },
+      'XAUUSD': {
+        name: 'Gold Spot (Oro)',
+        logo: '',
+        fallbackIcon: 'fa-solid fa-coins',
+        color: 'text-amber-400'
+      },
+      'SPCX': {
+        name: 'CrossingBridge SPAC ETF',
+        logo: '',
+        fallbackIcon: 'fa-solid fa-chart-pie',
+        color: 'text-purple-400'
+      },
+      'IB1T': {
+        name: 'iShares $ Treasury Bond ETF',
+        logo: '',
+        fallbackIcon: 'fa-solid fa-landmark',
+        color: 'text-emerald-400'
+      }
+    };
+
+    let activeSymbolsList = ['XAUUSD', 'NVDA', 'SPCX', 'IB1T'];
+    let currentSelectedSymbol = 'XAUUSD';
     let isKeyVisible = false;
+
+    // --- NAVIGAZIONE SCHERMATE PRINCIPALI ---
+    function switchMainScreen(screenId) {
+      const screens = ['dashboard', 'portfolio', 'search', 'configs'];
+      screens.forEach(s => {
+        const el = document.getElementById(`screen_${s}`);
+        const nav = document.getElementById(`nav_${s}`);
+        if (el) el.classList.toggle('hidden', s !== screenId);
+        if (nav) {
+          if (s === screenId) {
+            nav.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow';
+          } else {
+            nav.className = 'px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2';
+          }
+        }
+      });
+
+      if (screenId === 'portfolio') {
+        loadPortfolioData();
+      }
+    }
+
+    function openSearchModal() {
+      switchMainScreen('search');
+      setTimeout(() => {
+        const input = document.getElementById('marketSearchInput');
+        if (input) input.focus();
+      }, 100);
+    }
 
     function toggleKeyVisibility() {
       const input = document.getElementById('geminiApiKeyInput');
@@ -549,7 +823,21 @@
       icon.className = isKeyVisible ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
     }
 
-    // Carica stato iniziale
+    function onProviderChange() {
+      const p = document.getElementById('aiProviderSelect').value;
+      const badge = document.getElementById('providerBadge');
+      const container = document.getElementById('baseUrlContainer');
+      if (p === 'omniroute') {
+        badge.innerText = 'Omniroute Gateway';
+        badge.className = 'text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold';
+        container.style.opacity = '1';
+      } else {
+        badge.innerText = 'Google AI Studio REST';
+        badge.className = 'text-xs text-sky-400 bg-sky-500/10 px-3 py-1 rounded-full border border-sky-500/20 font-semibold';
+      }
+    }
+
+    // --- CARICAMENTO E GESTIONE CONFIGURAZIONI ---
     async function loadInitialStatus() {
       try {
         const res = await fetch('/api/gemini/config');
@@ -568,14 +856,17 @@
             } else {
               document.getElementById('geminiApiKeyInput').value = cfg.api_key_masked || '';
             }
-            document.getElementById('geminiStatusBadge').className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-            document.getElementById('geminiStatusText').innerText = `AI: ${cfg.model || 'Configurato'}`;
+            const gBadge = document.getElementById('geminiStatusBadge');
+            if (gBadge) gBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            const gText = document.getElementById('geminiStatusText');
+            if (gText) gText.innerText = `AI: ${cfg.model || 'Configurato'}`;
           }
           if (cfg.model) {
             const select = document.getElementById('geminiModelSelect');
             let found = false;
-            for (let i = 0; i < select.options.length; i++) {
-              if (select.options[i].value === cfg.model) {
+            for (let opt of select.options) {
+              if (opt.value === cfg.model) {
+                opt.selected = true;
                 found = true;
                 break;
               }
@@ -583,247 +874,252 @@
             if (!found) {
               const opt = document.createElement('option');
               opt.value = cfg.model;
-              opt.innerText = cfg.model;
+              opt.innerText = `${cfg.model} (configurato)`;
+              opt.selected = true;
               select.appendChild(opt);
             }
-            select.value = cfg.model;
-          }
-          if (cfg.temperature !== undefined) {
-            document.getElementById('geminiTempInput').value = cfg.temperature;
           }
         }
       } catch (e) {
-        console.error('Errore caricamento configurazione', e);
+        console.error('Errore config AI iniziale', e);
       }
 
       try {
-        const sRes = await fetch('/status');
-        if (sRes.ok) {
-          const st = await sRes.json();
-          const tradingActive = st.health.trading_enabled;
-          updateBotBadge(tradingActive);
+        const res = await fetch('/api/ibkr/config');
+        if (res.ok) {
+          const ib = await res.json();
+          if (ib.username) document.getElementById('ibkrUsernameInput').value = ib.username;
+          if (ib.trading_mode) {
+            document.getElementById('ibkrTradingModeSelect').value = ib.trading_mode;
+            const b = document.getElementById('overviewModeBadge');
+            if (b) b.innerText = ib.trading_mode.toUpperCase();
+          }
+          if (ib.host) document.getElementById('ibkrHostInput').value = ib.host;
+          if (ib.port) document.getElementById('ibkrPortInput').value = ib.port;
+
+          const badge = document.getElementById('ibkrStatusBadge');
+          const text = document.getElementById('ibkrStatusText');
+          if (ib.connected) {
+            if (badge) badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            if (text) text.innerText = `IBKR: Connesso (${ib.trading_mode})`;
+          } else {
+            if (badge) badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30';
+            if (text) text.innerText = `IBKR: In attesa (${ib.trading_mode})`;
+          }
         }
       } catch (e) {
-        console.error('Errore status bot', e);
+        console.error('Errore config IBKR iniziale', e);
       }
+
+      // Carica i simboli abilitati
+      await loadSymbolsConfiguration();
     }
 
-    function updateBotBadge(active) {
-      const badge = document.getElementById('botStatusBadge');
-      const text = document.getElementById('botStatusText');
-      if (active) {
-        badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-        badge.children[0].className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-        text.innerText = 'Bot: ATTIVO';
-      } else {
-        badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30';
-        badge.children[0].className = 'w-2 h-2 rounded-full bg-amber-400';
-        text.innerText = 'Bot: Standby';
-      }
-    }
-
-    function onProviderChange() {
-      const prov = document.getElementById('aiProviderSelect').value;
-      const baseUrlInput = document.getElementById('aiBaseUrlInput');
-      const keyInput = document.getElementById('geminiApiKeyInput');
-      const keyContainer = document.getElementById('apiKeyContainer');
-      const badge = document.getElementById('providerBadge');
-
-      if (prov === 'omniroute') {
-        baseUrlInput.value = 'http://192.168.1.212:9292/v1';
-        baseUrlInput.disabled = false;
-        keyContainer.classList.add('hidden');
-        badge.innerText = 'Omniroute Gateway (Zero 429)';
-        badge.className = 'text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-semibold';
-      } else {
-        baseUrlInput.disabled = true;
-        keyContainer.classList.remove('hidden');
-        badge.innerText = 'Google AI Studio REST';
-        badge.className = 'text-xs text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-semibold';
-      }
-    }
-
-    async function saveGeminiConfig() {
-      const provider = document.getElementById('aiProviderSelect').value;
-      const baseUrl = document.getElementById('aiBaseUrlInput').value.trim();
-      let apiKey = document.getElementById('geminiApiKeyInput').value.trim();
-      if (provider === 'omniroute' && !apiKey) {
-        apiKey = 'sk-92fbd7ff0bd42a7d-82e301-62dbdb1f';
-      }
-      const model = document.getElementById('geminiModelSelect').value;
-      const temp = parseFloat(document.getElementById('geminiTempInput').value) || 0.2;
-
+    async function loadSymbolsConfiguration() {
       try {
-        const res = await fetch('/api/gemini/config', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            provider: provider,
-            base_url: baseUrl,
-            api_key: apiKey,
-            model: model,
-            temperature: temp
-          })
-        });
-        const data = await res.json();
-        showResultBox(true, `Configurazione salvata con successo. Provider: ${data.provider.toUpperCase()}, Modello: ${data.model}`);
-        document.getElementById('geminiStatusText').innerText = `AI: ${data.model}`;
-      } catch (e) {
-        showResultBox(false, `Errore salvataggio: ${e.message}`);
-      }
-    }
-
-    async function fetchModelsFromGoogle() {
-      const spinner = document.getElementById('modelLoadingSpinner');
-      spinner.classList.remove('hidden');
-      try {
-        const res = await fetch('/api/gemini/models');
-        const data = await res.json();
-        if (data.models && data.models.length > 0) {
-          const select = document.getElementById('geminiModelSelect');
-          const currentVal = select.value;
-          select.innerHTML = '';
-          data.models.forEach(m => {
-            const opt = document.createElement('option');
-            const cleanName = (m.name || '').replace('models/', '');
-            opt.value = cleanName;
-            opt.innerText = `${m.displayName || cleanName} (${cleanName})`;
-            select.appendChild(opt);
-          });
-          select.value = currentVal || data.models[0].name.replace('models/', '');
-          showResultBox(true, `Recuperati ${data.models.length} modelli disponibili da Google API.`);
+        const res = await fetch('/config/symbols');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.symbols) {
+            activeSymbolsList = Object.keys(data.symbols);
+          }
         }
       } catch (e) {
-        showResultBox(false, `Errore recupero modelli: ${e.message}`);
-      } finally {
-        spinner.classList.add('hidden');
+        console.warn('Fallback simboli di default', e);
       }
+      renderSymbolTabs();
+      await switchSymbolTab(activeSymbolsList[0] || 'XAUUSD');
     }
 
-    async function testGeminiConnection() {
-      showResultBox(true, 'Test connessione in corso con Google Gemini API...');
-      try {
-        const res = await fetch('/api/gemini/test', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          showResultBox(true, `SUCCESS! Modello: ${data.model}\nRisposta Gemini: "${data.reply}"`);
-        } else {
-          showResultBox(false, `ERRORE CONNESSIONE: ${data.error || 'Autenticazione fallita'}`);
-        }
-      } catch (e) {
-        showResultBox(false, `Errore test: ${e.message}`);
-      }
+    // --- RENDERING TAB TITOLI CON ICONE & LOGHI VERE ---
+    function renderSymbolTabs() {
+      const container = document.getElementById('symbolTabsContainer');
+      if (!container) return;
+
+      container.innerHTML = activeSymbolsList.map(sym => {
+        const info = SYMBOL_LOGOS[sym] || { name: sym, logo: '', fallbackIcon: 'fa-solid fa-chart-line', color: 'text-sky-400' };
+        const isCurrent = sym === currentSelectedSymbol;
+
+        const logoHtml = info.logo 
+          ? `<img src="${info.logo}" alt="${sym}" class="w-5 h-5 rounded object-contain bg-white/10 p-0.5" onerror="this.onerror=null; this.src=''; this.className='hidden'; this.nextElementSibling.classList.remove('hidden');" />
+             <i class="${info.fallbackIcon} ${info.color} hidden text-sm"></i>`
+          : `<i class="${info.fallbackIcon} ${info.color} text-sm"></i>`;
+
+        const activeClass = isCurrent
+          ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 border-sky-400 ring-2 ring-sky-400/40'
+          : 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border-slate-700/80';
+
+        return `
+          <button id="tab_${sym}" onclick="switchSymbolTab('${sym}')"
+            class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2.5 border ${activeClass}">
+            <div class="flex items-center justify-center">
+              ${logoHtml}
+            </div>
+            <span class="tracking-wide">${sym}</span>
+            <span id="tabBadge_${sym}" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          </button>
+        `;
+      }).join('');
     }
 
-    let currentSelectedSymbol = 'XAUUSD';
-
+    // --- CAMBIO TAB TITOLO ATTIVO ---
     async function switchSymbolTab(sym) {
       currentSelectedSymbol = sym;
-      const symbols = ['XAUUSD', 'NVDA', 'SPCX', 'IB1T'];
+      renderSymbolTabs();
 
-      // Aggiorna stili bottoni tab
-      symbols.forEach(s => {
-        const tabBtn = document.getElementById(`tab_${s}`);
-        if (tabBtn) {
-          if (s === sym) {
-            tabBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 text-white shadow-md shadow-sky-600/30';
-          } else {
-            tabBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-400 hover:text-white';
-          }
+      // Aggiorna etichette testuali ovunque
+      document.querySelectorAll('.activeSymLabel').forEach(el => el.innerText = sym);
+      const nameHeader = document.getElementById('currentSymbolNameHeader');
+      if (nameHeader) nameHeader.innerText = sym;
+
+      const descHeader = document.getElementById('currentSymbolDescHeader');
+      const assetBadge = document.getElementById('currentSymbolAssetBadge');
+      const logoBox = document.getElementById('activeSymbolLogoContainer');
+
+      const info = SYMBOL_LOGOS[sym] || { name: sym, logo: '', fallbackIcon: 'fa-solid fa-chart-line', color: 'text-sky-400' };
+      if (descHeader) descHeader.innerText = info.name;
+
+      if (logoBox) {
+        if (info.logo) {
+          logoBox.innerHTML = `<img src="${info.logo}" alt="${sym}" class="w-8 h-8 rounded-lg object-contain bg-white/5 p-1" onerror="this.onerror=null; this.innerHTML='<i class=\\'${info.fallbackIcon} ${info.color} text-xl\\'></i>';" />`;
+        } else {
+          logoBox.innerHTML = `<i class="${info.fallbackIcon} ${info.color} text-2xl"></i>`;
         }
-      });
+      }
 
-      // Aggiorna etichette dinamiche
-      document.getElementById('budgetSymbolHint').innerText = sym;
-      document.getElementById('btnSymbolLabel').innerText = sym;
-      document.getElementById('logSymbolLabel').innerText = sym;
-
-      // Recupera budget del simbolo
+      // Carica budget salvato per questo titolo
       try {
         const res = await fetch('/api/symbols/budget');
         if (res.ok) {
           const data = await res.json();
-          if (data.symbols_budget && data.symbols_budget[sym]) {
-            document.getElementById('tradeBudgetInput').value = data.symbols_budget[sym];
-          } else {
-            document.getElementById('tradeBudgetInput').value = 5000;
-          }
+          const budgets = data.symbols_budget || {};
+          const b = budgets[sym] || 5000;
+          document.getElementById('tradeBudgetInput').value = b;
         }
       } catch (e) {
-        console.error('Errore recupero budget per simbolo', e);
+        console.warn('Errore lettura budget', e);
       }
 
-      // Recupera strategia salvata per questo simbolo e popola la card
-      await loadSavedStrategyForSymbol(sym);
-
-      // Aggiorna etichette simbolo per log e operazioni
-      const opsSymEl = document.getElementById('opsSymbolLabel');
-      if (opsSymEl) opsSymEl.innerText = sym;
-      const logSymEl = document.getElementById('logSymbolLabel');
-      if (logSymEl) logSymEl.innerText = sym;
-
-      // Aggiorna stato del bot, operazioni svolte e log completi
-      await updateSymbolBotStatus();
-      await fetchBotOperations();
-      await fetchBotLogs();
-    }
-
-    async function loadSavedStrategyForSymbol(sym) {
+      // Carica ultima strategia salvata
       try {
         const res = await fetch(`/api/strategy/${sym}`);
         if (res.ok) {
-          const resData = await res.json();
-          const data = resData.strategy;
-          const container = document.getElementById('aiDecisionContainer');
-          if (data) {
-            container.classList.remove('hidden');
-            renderStrategyData(data);
+          const data = await res.json();
+          if (data && data.strategy) {
+            renderStrategyPayload(data.strategy);
           } else {
-            // Se non c'è ancora un'analisi per questo simbolo
-            container.classList.add('hidden');
+            resetStrategyUI();
           }
         }
       } catch (e) {
-        console.error('Errore caricamento strategia salvata per ' + sym, e);
+        console.warn('Errore lettura strategia', e);
+      }
+
+      // Recupera prezzo live da Yahoo/IBKR
+      fetchSymbolLivePrice(sym);
+
+      // Aggiorna stato bot per il simbolo
+      await updateSymbolBotStatus();
+
+      // Carica log del simbolo
+      await fetchBotLogs();
+
+      // Carica operazioni del simbolo
+      await fetchBotOperations();
+    }
+
+    async function fetchSymbolLivePrice(sym) {
+      try {
+        const res = await fetch(`/api/symbols/quote/${sym}`);
+        if (res.ok) {
+          const q = await res.json();
+          const pEl = document.getElementById('currentSymbolLivePrice');
+          const cEl = document.getElementById('currentSymbolLiveChange');
+          if (q.price !== null && q.price !== undefined) {
+            pEl.innerText = `$${parseFloat(q.price).toFixed(2)}`;
+            const chg = q.change_pct || 0;
+            const sign = chg >= 0 ? '+' : '';
+            cEl.innerText = `${sign}${chg}%`;
+            cEl.className = `text-sm font-bold font-mono ${chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          }
+        }
+      } catch (e) {
+        console.warn('Errore quote live', e);
       }
     }
 
-    function renderStrategyData(data) {
-      const act = data.action || 'HOLD';
-      const actEl = document.getElementById('aiActionVal');
-      actEl.innerText = act;
-      actEl.className = 'text-2xl font-black mt-1 ' + (act === 'BUY' ? 'text-emerald-400' : act === 'SELL' ? 'text-rose-400' : 'text-amber-400');
+    // --- SALVATAGGIO BUDGET PER TITOLO ---
+    async function saveBudgetForSymbol() {
+      const sym = currentSelectedSymbol;
+      const budget = parseFloat(document.getElementById('tradeBudgetInput').value) || 5000;
+      const badge = document.getElementById('budgetSavedBadge');
 
-      document.getElementById('aiConfidenceVal').innerText = `${Math.round((data.confidence || 0) * 100)}%`;
-      document.getElementById('aiSentimentVal').innerText = data.market_sentiment || 'NEUTRAL';
-      document.getElementById('aiSetupVal').innerText = data.scalping_setup || 'Scalping Setup';
-      document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
-      document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size || data.position_size_oz || 1} ${data.unit || 'pz'}`;
-      document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
-
-      if (data.existing_position) {
-        const ep = data.existing_position;
-        document.getElementById('aiExistingPosVal').innerText = ep.details || '-';
-        const badge = document.getElementById('aiPosBadge');
-        if (ep.has_position) {
-          badge.innerText = 'Posizione Aperta';
-          badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-        } else {
-          badge.innerText = 'Nessuna Posizione';
-          badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+      try {
+        const res = await fetch('/api/symbols/budget', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym, budget: budget })
+        });
+        if (res.ok) {
+          badge.classList.remove('hidden');
+          setTimeout(() => badge.classList.add('hidden'), 2500);
         }
+      } catch (e) {
+        console.error('Errore salvataggio budget', e);
       }
+    }
 
-      if (data.historical_context) {
-        const hc = data.historical_context;
-        document.getElementById('aiTrend30dVal').innerText = `${hc.trend_30d || '-'} (${hc.change_pct_30d > 0 ? '+' : ''}${hc.change_pct_30d}%)`;
-        document.getElementById('aiRange30dVal').innerText = `Range 30d: $${hc.range_30d ? hc.range_30d[0] : '-'} - $${hc.range_30d ? hc.range_30d[1] : '-'}`;
+    // --- CONTROLLO BOT (START/STOP) PER SIMBOLO ---
+    async function startSymbolBot() {
+      const sym = currentSelectedSymbol;
+      const btn = document.getElementById('btnStartSymbolBot');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Avvio ${sym}...`;
 
-        document.getElementById('aiTrend7dVal').innerText = `${hc.trend_7d || '-'} (${hc.change_pct_7d > 0 ? '+' : ''}${hc.change_pct_7d}%)`;
-        document.getElementById('aiRange7dVal').innerText = `Range 7d: $${hc.range_7d ? hc.range_7d[0] : '-'} - $${hc.range_7d ? hc.range_7d[1] : '-'} | RSI: ${hc.rsi}`;
+      try {
+        const res = await fetch('/bot/start', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym })
+        });
+        const data = await res.json();
+        if (res.ok && data.is_active) {
+          await updateSymbolBotStatus();
+          await fetchBotLogs();
+          await loadPortfolioData();
+        } else {
+          alert(`Impossibile avviare il bot su ${sym}:\n${data.detail || JSON.stringify(data)}`);
+        }
+      } catch (e) {
+        alert(`Errore avvio bot: ${e.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-play"></i> Avvia Bot per <span class="activeSymLabel">${sym}</span>`;
       }
+    }
 
-      document.getElementById('rawAiJson').innerText = JSON.stringify(data, null, 2);
+    async function stopSymbolBot() {
+      const sym = currentSelectedSymbol;
+      const btn = document.getElementById('btnStopSymbolBot');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Arresto...`;
+
+      try {
+        const res = await fetch('/bot/stop', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym })
+        });
+        if (res.ok) {
+          await updateSymbolBotStatus();
+          await fetchBotLogs();
+        }
+      } catch (e) {
+        alert(`Errore stop bot: ${e.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-stop"></i> Ferma Bot`;
+      }
     }
 
     async function updateSymbolBotStatus() {
@@ -840,7 +1136,7 @@
           const bots = data.bots || {};
 
           // Aggiorna i pallini di stato su ciascun tab
-          ['XAUUSD', 'NVDA', 'SPCX', 'IB1T'].forEach(s => {
+          activeSymbolsList.forEach(s => {
             const b = document.getElementById(`tabBadge_${s}`);
             if (b) {
               b.className = bots[s] ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' : 'w-2 h-2 rounded-full bg-slate-500';
@@ -849,17 +1145,39 @@
 
           const isActive = bots[sym];
           if (isActive) {
-            dot.className = 'w-3 h-3 rounded-full bg-emerald-400 animate-pulse';
-            text.innerText = `Bot ${sym}: IN ESECUZIONE (Background)`;
-            text.className = 'text-sm font-semibold text-emerald-400';
-            btnStart.classList.add('opacity-50', 'pointer-events-none');
-            btnStop.classList.remove('opacity-50', 'pointer-events-none');
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+            text.innerText = 'Attivo (Scalping in Background)';
+            text.className = 'text-emerald-400 font-bold';
+            btnStart.disabled = true;
+            btnStart.classList.add('opacity-50', 'cursor-not-allowed');
+            btnStop.disabled = false;
+            btnStop.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnStop.classList.add('bg-rose-600');
           } else {
-            dot.className = 'w-3 h-3 rounded-full bg-slate-600';
-            text.innerText = `Bot ${sym}: INATTIVO`;
-            text.className = 'text-sm font-semibold text-white';
-            btnStart.classList.remove('opacity-50', 'pointer-events-none');
-            btnStop.classList.add('opacity-50', 'pointer-events-none');
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+            text.innerText = 'Inattivo (Standby)';
+            text.className = 'text-slate-400';
+            btnStart.disabled = false;
+            btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnStop.disabled = true;
+            btnStop.classList.add('opacity-50', 'cursor-not-allowed');
+            btnStop.classList.remove('bg-rose-600');
+          }
+
+          // Aggiorna riassunto lavori in corso nel quadro generale
+          const activeList = Object.keys(bots).filter(k => bots[k]);
+          const jobEl = document.getElementById('overviewActiveJobsSummary');
+          const botBadge = document.getElementById('botStatusBadge');
+          const botText = document.getElementById('botStatusText');
+
+          if (activeList.length > 0) {
+            if (jobEl) jobEl.innerHTML = `<span class="text-emerald-400 font-bold">${activeList.length} Bot attivi in background</span> (${activeList.join(', ')})`;
+            if (botBadge) botBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            if (botText) botText.innerText = `Bot: ${activeList.length} Attivi`;
+          } else {
+            if (jobEl) jobEl.innerText = 'Nessun bot di trading attivo al momento (Standby)';
+            if (botBadge) botBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30';
+            if (botText) botText.innerText = 'Bot: Standby';
           }
         }
       } catch (e) {
@@ -867,133 +1185,104 @@
       }
     }
 
-    async function toggleSymbolBot(enable) {
+    // --- ANALISI AI (SIMULATE TRADE) ---
+    async function simulateTradeAnalysis() {
+      const btn = document.getElementById('btnSimulateTrade');
       const sym = currentSelectedSymbol;
-      const endpoint = enable ? '/bot/start' : '/bot/stop';
-      const btnStart = document.getElementById('btnStartSymbolBot');
-      const btnStop = document.getElementById('btnStopSymbolBot');
+      const budget = parseFloat(document.getElementById('tradeBudgetInput').value) || 5000;
 
-      if (enable) {
-        if (btnStart) {
-          btnStart.disabled = true;
-          btnStart.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 1. Sync Portafoglio & 2. Nuova Analisi AI...`;
-        }
-        // Mostra messaggio visivo di sincronizzazione
-        const logContainer = document.getElementById('botConsoleLogs');
-        if (logContainer) {
-          logContainer.innerHTML = `<div class="text-sky-400 font-bold leading-relaxed">[AVVIO IN CORSO] 1. Aggiornamento dati reali portafoglio IBKR &bull; 2. Esecuzione nuova analisi AI di mercato per ${sym}...</div>` + logContainer.innerHTML;
-        }
-      } else {
-        if (btnStop) {
-          btnStop.disabled = true;
-          btnStop.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Arresto...`;
-        }
-      }
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analisi ${sym} in corso...`;
 
       try {
-        const res = await fetch(endpoint, {
+        const res = await fetch('/api/gemini/simulate-trade', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ symbol: sym })
+          body: JSON.stringify({ symbol: sym, budget: budget })
         });
         const data = await res.json();
-        if (res.ok) {
-          // Se avviato, ricarichiamo sia il portfolio a schermo che la card della nuova strategia
-          if (enable) {
-            await loadPortfolioData();
-            if (data.active_strategy) {
-              const container = document.getElementById('aiDecisionContainer');
-              container.classList.remove('hidden');
-              renderStrategyData(data.active_strategy);
-            }
-          }
-          await updateSymbolBotStatus();
-          await fetchBotOperations();
-          await fetchBotLogs();
-          showResultBox(true, enable ? `PORTAFOGLIO SINCRONIZZATO & NUOVA ANALISI COMPLETATA: BOT ${sym} AVVIATO IN BACKGROUND!` : `BOT ${sym} FERMATO!`);
-        } else {
-          alert(`AVVIO BLOCCATO PER ${sym}:\n${data.detail || 'Verifica la strategia e il portafoglio'}`);
+        if (data.error) {
+          alert('Errore Analisi: ' + data.error);
+          return;
         }
+
+        renderStrategyPayload(data);
+        await fetchBotLogs();
+        await fetchBotOperations();
       } catch (e) {
-        alert('Errore operazione bot: ' + e.message);
+        alert('Errore chiamata AI: ' + e.message);
       } finally {
-        if (btnStart) {
-          btnStart.disabled = false;
-          btnStart.innerHTML = `<i class="fa-solid fa-play"></i> Avvia Trading su questo Titolo`;
-        }
-        if (btnStop) {
-          btnStop.disabled = false;
-          btnStop.innerHTML = `<i class="fa-solid fa-stop"></i> Ferma Bot`;
-        }
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-indigo-200"></i> Analizza & Strategia Scalping AI`;
       }
     }
 
-    async function fetchBotOperations() {
-      const sym = currentSelectedSymbol;
-      const tbody = document.getElementById('botOperationsTableBody');
-      const badge = document.getElementById('opsCountBadge');
-      if (!tbody) return;
+    function renderStrategyPayload(data) {
+      if (!data) return;
+      const act = data.action || 'HOLD';
+      const actionEl = document.getElementById('aiActionVal');
+      actionEl.innerText = act;
+      actionEl.className = `text-xl font-black mt-1 ${act === 'BUY' ? 'text-emerald-400' : act === 'SELL' ? 'text-rose-400' : 'text-slate-300'}`;
 
-      try {
-        const res = await fetch(`/bot/operations?symbol=${sym}&limit=50`);
-        if (res.ok) {
-          const data = await res.json();
-          const ops = data.operations || [];
-          if (badge) badge.innerText = `${ops.length} operazion${ops.length === 1 ? 'e' : 'i'}`;
+      document.getElementById('aiConfidenceVal').innerText = `${Math.round((data.confidence || 0) * 100)}%`;
+      document.getElementById('aiSentimentVal').innerText = data.market_sentiment || 'NEUTRAL';
+      document.getElementById('aiSetupVal').innerText = data.scalping_setup || 'Scalping Setup';
+      document.getElementById('aiLevelsVal').innerText = `SL: $${data.stop_loss || '-'} | TP: $${data.take_profit || '-'}`;
+      document.getElementById('aiSizeVal').innerText = `Entry: $${data.entry_price || '-'} | Size: ${data.position_size || data.position_size_oz || 1} ${data.unit || 'pz'}`;
+      document.getElementById('aiReasoningVal').innerText = data.reasoning || 'Nessun ragionamento fornito';
 
-          if (ops.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-slate-500 font-sans italic">Nessuna operazione di acquisto/vendita eseguita finora per ${sym}</td></tr>`;
-          } else {
-            tbody.innerHTML = ops.map(op => {
-              const isBuy = op.action === 'BUY';
-              const typeBadge = isBuy
-                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px]">LONG (BUY)</span>'
-                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-bold border border-rose-500/20 text-[10px]">' + (op.operation_type || 'SELL') + '</span>';
+      const timeEl = document.getElementById('aiStrategyTime');
+      if (timeEl && data.timestamp) {
+        timeEl.innerText = `Aggiornato: ${data.timestamp.split('T')[1]?.substring(0,8) || data.timestamp}`;
+      }
 
-              const actColor = isBuy ? 'text-emerald-400' : 'text-rose-400';
-              const pnlVal = op.pnl || 0.0;
-              const pnlColor = pnlVal > 0 ? 'text-emerald-400 font-bold' : (pnlVal < 0 ? 'text-rose-400 font-bold' : 'text-slate-400');
-              const slText = op.stop_loss ? `$${op.stop_loss.toFixed(2)}` : '-';
-              const tpText = op.take_profit ? `$${op.take_profit.toFixed(2)}` : '-';
-              const priceText = op.price ? `$${op.price.toFixed(2)}` : '-';
-              const dateText = op.executed_at ? op.executed_at : '-';
-
-              return `
-                <tr class="hover:bg-slate-800/40 transition">
-                  <td class="py-2.5 px-3 text-sky-300 font-semibold whitespace-nowrap">${dateText}</td>
-                  <td class="py-2.5 px-3 whitespace-nowrap">${typeBadge}</td>
-                  <td class="py-2.5 px-3 font-bold ${actColor}">${op.action}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-200 font-semibold">${op.quantity}</td>
-                  <td class="py-2.5 px-3 text-right text-white font-bold">${priceText}</td>
-                  <td class="py-2.5 px-3 text-right text-rose-300 font-mono">${slText}</td>
-                  <td class="py-2.5 px-3 text-right text-emerald-300 font-mono">${tpText}</td>
-                  <td class="py-2.5 px-3 text-right ${pnlColor}">$${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-slate-300 max-w-xs truncate" title="${op.details || ''}">
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 mr-1.5">${op.status}</span>
-                    <span class="text-slate-400 font-sans text-[11px]">${op.details || '-'}</span>
-                  </td>
-                </tr>
-              `;
-            }).join('');
-          }
+      if (data.existing_position) {
+        const ep = data.existing_position;
+        document.getElementById('aiExistingPosVal').innerText = ep.details || '-';
+        const badge = document.getElementById('aiPosBadge');
+        if (ep.has_position) {
+          badge.innerText = 'Posizione Aperta';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        } else {
+          badge.innerText = 'Nessuna Posizione';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700';
         }
-      } catch (e) {
-        console.error('Errore recupero operazioni bot', e);
+      }
+
+      if (data.historical_context) {
+        const hc = data.historical_context;
+        document.getElementById('aiTrend30dVal').innerText = `${hc.trend_30d || '-'} (${hc.change_pct_30d > 0 ? '+' : ''}${hc.change_pct_30d}%)`;
+        document.getElementById('aiTrend7dVal').innerText = `${hc.trend_7d || '-'} (${hc.change_pct_7d > 0 ? '+' : ''}${hc.change_pct_7d}%)`;
       }
     }
 
+    function resetStrategyUI() {
+      document.getElementById('aiActionVal').innerText = 'STANDBY';
+      document.getElementById('aiActionVal').className = 'text-xl font-black mt-1 text-slate-300';
+      document.getElementById('aiConfidenceVal').innerText = '0%';
+      document.getElementById('aiSentimentVal').innerText = 'NEUTRAL';
+      document.getElementById('aiSetupVal').innerText = 'In attesa di analisi';
+      document.getElementById('aiLevelsVal').innerText = 'SL: - | TP: -';
+      document.getElementById('aiSizeVal').innerText = 'Entry: - | Size: -';
+      document.getElementById('aiReasoningVal').innerText = "Nessuna strategia salvata per questo titolo. Clicca su 'Analizza & Strategia Scalping AI' per iniziare.";
+      document.getElementById('aiExistingPosVal').innerText = '-';
+      document.getElementById('aiTrend30dVal').innerText = '-';
+      document.getElementById('aiTrend7dVal').innerText = '-';
+    }
+
+    // --- CARICAMENTO LOG VERBOSI & OPERAZIONI ---
     async function fetchBotLogs() {
       const sym = currentSelectedSymbol;
       const container = document.getElementById('botConsoleLogs');
-      const autoScroll = document.getElementById('autoScrollLogs').checked;
+      const autoScroll = document.getElementById('autoScrollLogs')?.checked;
 
       try {
-        const res = await fetch(`/bot/logs?symbol=${sym}&limit=80`);
+        const res = await fetch(`/bot/logs?symbol=${sym}&limit=100`);
         if (res.ok) {
           const data = await res.json();
           const logs = data.logs || [];
           if (logs.length === 0) {
-            container.innerHTML = `<div class="text-slate-500 italic">Nessun evento registrato per ${sym}. Premi "Avvia Trading su questo Titolo" per iniziare.</div>`;
+            container.innerHTML = `<div class="text-slate-500 italic">Nessun log recente registrato per ${sym}.</div>`;
           } else {
             container.innerHTML = logs.map(l => {
               const color = l.level === 'SUCCESS' ? 'text-emerald-400' :
@@ -1013,91 +1302,353 @@
       }
     }
 
-    async function simulateTradeAnalysis() {
-      const btn = document.getElementById('btnSimulateTrade');
+    async function fetchBotOperations() {
       const sym = currentSelectedSymbol;
-      const budget = parseFloat(document.getElementById('tradeBudgetInput').value) || 5000;
+      const body = document.getElementById('botOperationsTableBody');
+      try {
+        const res = await fetch(`/bot/operations?symbol=${sym}&limit=30`);
+        if (res.ok) {
+          const data = await res.json();
+          const ops = data.operations || [];
+          if (ops.length === 0) {
+            body.innerHTML = `<tr><td colspan="8" class="px-4 py-4 text-center text-slate-500 italic">Nessuna operazione reale eseguita finora per ${sym}.</td></tr>`;
+          } else {
+            body.innerHTML = ops.map(op => {
+              const actColor = op.action === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+              return `
+                <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                  <td class="px-4 py-2.5 text-slate-400">${op.created_at || '-'}</td>
+                  <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded border text-[11px] font-bold ${actColor}">${op.action}</span></td>
+                  <td class="px-4 py-2.5 font-bold text-white">${op.symbol}</td>
+                  <td class="px-4 py-2.5">${op.quantity}</td>
+                  <td class="px-4 py-2.5 text-slate-200">$${parseFloat(op.price || 0).toFixed(2)}</td>
+                  <td class="px-4 py-2.5 text-rose-300">$${parseFloat(op.stop_loss || 0).toFixed(2)}</td>
+                  <td class="px-4 py-2.5 text-emerald-300">$${parseFloat(op.take_profit || 0).toFixed(2)}</td>
+                  <td class="px-4 py-2.5 text-slate-400 truncate max-w-xs">${op.status || 'FILLED'} ${op.details || ''}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Errore recupero operazioni', e);
+      }
+    }
 
-      btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analisi ${sym} in corso...`;
+    // --- CARICAMENTO PORTAFOGLIO GLOBALE REALE (IBKR) ---
+    async function loadPortfolioData() {
+      try {
+        const res = await fetch('/portfolio');
+        if (res.ok) {
+          const data = await res.json();
+          const totalVal = data.total_value !== undefined ? data.total_value : (data.portfolio?.account?.total_value || 0);
+          const cashBal = data.cash_balance !== undefined ? data.cash_balance : (data.portfolio?.account?.cash_balance || 0);
+          const buyPow = data.buying_power !== undefined ? data.buying_power : (data.portfolio?.account?.buying_power || 0);
+          const unPnL = data.unrealized_pnl !== undefined ? data.unrealized_pnl : (data.portfolio?.account?.unrealized_pnl || 0);
+          const realPnL = data.realized_pnl_today !== undefined ? data.realized_pnl_today : (data.portfolio?.account?.realized_pnl_today || 0);
+          const margin = data.margin_used !== undefined ? data.margin_used : (data.portfolio?.account?.margin_used || 0);
+          const accId = data.account_id || data.portfolio?.account?.account_id || '-';
+          const positions = data.positions || data.portfolio?.positions || [];
+          const orders = data.open_orders || [];
+          const executions = data.executions || [];
+
+          // Formatters
+          const fmt = (v) => `€${parseFloat(v || 0).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+          // Aggiorna Quadro Generale Dashboard
+          const oAcc = document.getElementById('overviewAccountId');
+          if (oAcc) oAcc.innerText = accId;
+          const oNet = document.getElementById('overviewNetLiq');
+          if (oNet) oNet.innerText = fmt(totalVal);
+          const oCash = document.getElementById('overviewCash');
+          if (oCash) oCash.innerText = fmt(cashBal);
+          const oBuy = document.getElementById('overviewBuyingPower');
+          if (oBuy) oBuy.innerText = fmt(buyPow);
+          
+          const oUnPnL = document.getElementById('overviewUnPnL');
+          if (oUnPnL) {
+            oUnPnL.innerText = fmt(unPnL);
+            oUnPnL.className = `font-mono font-bold text-sm sm:text-base ${unPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          }
+
+          const oRealPnL = document.getElementById('overviewRealPnL');
+          if (oRealPnL) {
+            oRealPnL.innerText = fmt(realPnL);
+            oRealPnL.className = `font-mono font-bold text-sm sm:text-base ${realPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          }
+
+          const oMargin = document.getElementById('overviewMargin');
+          if (oMargin) oMargin.innerText = fmt(margin);
+
+          document.getElementById('overviewOpenPositionsCount').innerText = positions.length;
+          document.getElementById('overviewOpenOrdersCount').innerText = orders.length;
+          document.getElementById('overviewDailyTradesCount').innerText = executions.length;
+
+          // Aggiorna Schermata Portafoglio Dettagliata
+          document.getElementById('portfolioAccountId').innerText = accId;
+          document.getElementById('portfolioNetLiq').innerText = fmt(totalVal);
+          document.getElementById('portfolioCash').innerText = fmt(cashBal);
+          document.getElementById('portfolioBuyingPower').innerText = fmt(buyPow);
+          const pUnPnL = document.getElementById('portfolioUnPnL');
+          if (pUnPnL) {
+            pUnPnL.innerText = fmt(unPnL);
+            pUnPnL.className = `font-mono font-bold text-sm ${unPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          }
+          document.getElementById('portfolioMargin').innerText = fmt(margin);
+          document.getElementById('portfolioPositionsCount').innerText = positions.length;
+          document.getElementById('portfolioOrdersCount').innerText = orders.length;
+          document.getElementById('portfolioExecsCount').innerText = executions.length;
+
+          // Render Posizioni Aperte
+          const posBody = document.getElementById('portfolioPositionsTableBody');
+          if (positions.length === 0) {
+            posBody.innerHTML = `<tr><td colspan="8" class="px-4 py-5 text-center text-slate-500 italic">Nessuna posizione aperta nel conto IBKR.</td></tr>`;
+          } else {
+            posBody.innerHTML = positions.map(p => {
+              const pnlColor = p.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+              return `
+                <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                  <td class="px-4 py-3 font-bold text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${p.symbol}
+                  </td>
+                  <td class="px-4 py-3 text-slate-400">${p.sec_type || 'STK'}</td>
+                  <td class="px-4 py-3 font-bold ${p.direction === 'long' ? 'text-emerald-400' : 'text-rose-400'} uppercase">${p.direction}</td>
+                  <td class="px-4 py-3 font-semibold text-white">${p.quantity}</td>
+                  <td class="px-4 py-3 text-slate-300">€${parseFloat(p.entry_price).toFixed(2)}</td>
+                  <td class="px-4 py-3 text-slate-200">€${parseFloat(p.current_price).toFixed(2)}</td>
+                  <td class="px-4 py-3 text-slate-200">€${parseFloat(p.market_value).toFixed(2)}</td>
+                  <td class="px-4 py-3 font-bold ${pnlColor}">€${parseFloat(p.unrealized_pnl).toFixed(2)}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+
+          // Render Ordini
+          const ordBody = document.getElementById('portfolioOrdersTableBody');
+          if (orders.length === 0) {
+            ordBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessun ordine pendente.</td></tr>`;
+          } else {
+            ordBody.innerHTML = orders.map(o => `
+              <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                <td class="px-3 py-2 text-slate-400">${o.order_id}</td>
+                <td class="px-3 py-2 font-bold ${o.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${o.action}</td>
+                <td class="px-3 py-2">${o.total_quantity}</td>
+                <td class="px-3 py-2 text-slate-400">${o.order_type}</td>
+                <td class="px-3 py-2 text-white">${o.lmt_price ? '€' + o.lmt_price : 'MKT'}</td>
+              </tr>
+            `).join('');
+          }
+
+          // Render Esecuzioni
+          const execBody = document.getElementById('portfolioExecsTableBody');
+          if (executions.length === 0) {
+            execBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessuna esecuzione recente.</td></tr>`;
+          } else {
+            execBody.innerHTML = executions.slice(0, 10).map(e => `
+              <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                <td class="px-3 py-2 font-bold text-white">${e.symbol}</td>
+                <td class="px-3 py-2 font-bold ${e.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${e.action}</td>
+                <td class="px-3 py-2">${e.quantity}</td>
+                <td class="px-3 py-2">€${parseFloat(e.entry_price || e.exit_price || 0).toFixed(2)}</td>
+                <td class="px-3 py-2 ${e.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">€${parseFloat(e.pnl || 0).toFixed(2)}</td>
+              </tr>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Errore caricamento portfolio IBKR', e);
+      }
+    }
+
+    // --- RICERCA ASSET DI MERCATO & AGGIUNTA A PORTAFOGLIO ---
+    async function executeMarketSearch() {
+      const q = document.getElementById('marketSearchInput').value.trim();
+      const spinner = document.getElementById('searchSpinner');
+      const resultsContainer = document.getElementById('searchResultsContainer');
+      const label = document.getElementById('searchResultsLabel');
+
+      if (!q) {
+        alert('Inserisci un termine di ricerca (nome azienda, ticker o ISIN).');
+        return;
+      }
+
+      spinner.classList.remove('hidden');
+      label.innerText = `Ricerca in corso per: "${q}"...`;
+      resultsContainer.innerHTML = '';
 
       try {
-        const res = await fetch('/api/gemini/simulate-trade', {
+        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const results = data.results || [];
+          spinner.classList.add('hidden');
+
+          if (results.length === 0) {
+            label.innerText = `Nessun risultato trovato per "${q}". Prova con un altro ticker o nome.`;
+            return;
+          }
+
+          label.innerText = `Trovati ${results.length} risultati per "${q}":`;
+          resultsContainer.innerHTML = results.map(item => {
+            const sym = item.symbol;
+            const isAlreadyAdded = activeSymbolsList.includes(sym);
+            const knownLogo = SYMBOL_LOGOS[sym]?.logo || `https://s3-symbol-logo.tradingview.com/${sym.toLowerCase()}.svg`;
+
+            return `
+              <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center p-1 border border-slate-700">
+                      <img src="${knownLogo}" alt="${sym}" class="w-7 h-7 rounded object-contain"
+                        onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<i class=\\'fa-solid fa-chart-line text-sky-400 text-lg\\'></i>';" />
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="font-bold text-white text-sm font-mono">${sym}</span>
+                        <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">${item.exchange || 'SMART'}</span>
+                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">${item.asset_class || 'stock'}</span>
+                      </div>
+                      <p class="text-xs text-slate-300 truncate max-w-xs mt-0.5">${item.name || sym}</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-mono text-slate-400">${item.currency || 'USD'}</span>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <label class="text-[11px] text-slate-400">Budget:</label>
+                    <input type="number" id="searchBudget_${sym}" value="5000" step="500" min="100" class="input-field w-24 px-2 py-1 rounded text-xs font-mono" />
+                  </div>
+                  ${isAlreadyAdded ? `
+                    <button disabled class="bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                      <i class="fa-solid fa-check"></i> Già a Portafoglio
+                    </button>
+                  ` : `
+                    <button onclick="addFoundSymbolToPortfolio('${sym}', '${(item.name || sym).replace(/'/g, "\\'")}', '${item.asset_class || 'stock'}', '${item.exchange || 'SMART'}', '${item.currency || 'USD'}')"
+                      class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-sky-600/20">
+                      <i class="fa-solid fa-plus"></i> Aggiungi a Portafoglio
+                    </button>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (e) {
+        spinner.classList.add('hidden');
+        label.innerText = `Errore durante la ricerca: ${e.message}`;
+      }
+    }
+
+    async function addFoundSymbolToPortfolio(sym, name, assetClass, exchange, currency) {
+      const budgetInput = document.getElementById(`searchBudget_${sym}`);
+      const budget = budgetInput ? parseFloat(budgetInput.value) || 5000 : 5000;
+
+      try {
+        const res = await fetch('/api/symbols/add', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             symbol: sym,
+            description: name,
+            asset_class: assetClass,
+            ib_exchange: exchange,
+            ib_currency: currency,
             budget: budget
           })
         });
-        const data = await res.json();
-        if (data.error) {
-          alert('Errore: ' + data.error);
-          return;
+
+        if (res.ok) {
+          if (!activeSymbolsList.includes(sym)) {
+            activeSymbolsList.push(sym);
+          }
+          // Salva anche nei simboli noti se assente
+          if (!SYMBOL_LOGOS[sym]) {
+            SYMBOL_LOGOS[sym] = {
+              name: name,
+              logo: `https://s3-symbol-logo.tradingview.com/${sym.toLowerCase()}.svg`,
+              fallbackIcon: 'fa-solid fa-chart-line',
+              color: 'text-sky-400'
+            };
+          }
+
+          alert(`✓ ${sym} aggiunto con successo al portafoglio con budget $${budget}!`);
+          renderSymbolTabs();
+          await switchMainScreen('dashboard');
+          await switchSymbolTab(sym);
+        } else {
+          const err = await res.json();
+          alert(`Errore aggiunta simbolo: ${err.detail || JSON.stringify(err)}`);
         }
-
-        // Mostra badge salvataggio budget
-        const bBadge = document.getElementById('budgetSavedBadge');
-        bBadge.classList.remove('hidden');
-        setTimeout(() => bBadge.classList.add('hidden'), 3000);
-
-        const container = document.getElementById('aiDecisionContainer');
-        container.classList.remove('hidden');
-
-        // Renderizza la strategia usando la funzione unificata
-        renderStrategyData(data);
-
       } catch (e) {
-        alert('Errore chiamata analisi: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Analizza <span id="btnSymbolLabel">${sym}</span> & Genera Strategia`;
+        alert(`Errore rete durante l'aggiunta: ${e.message}`);
       }
     }
 
-    async function toggleBot(enable) {
-      const endpoint = enable ? '/bot/start' : '/bot/stop';
-      const sym = document.getElementById('tradeSymbolSelect') ? document.getElementById('tradeSymbolSelect').value : 'XAUUSD';
+    // --- SALVATAGGIO CONFIGURAZIONI AI & IBKR ---
+    async function saveGeminiConfig() {
+      const provider = document.getElementById('aiProviderSelect').value;
+      const baseUrl = document.getElementById('aiBaseUrlInput').value.trim();
+      const apiKey = document.getElementById('geminiApiKeyInput').value.trim();
+      const model = document.getElementById('geminiModelSelect').value;
+
       try {
-        const res = await fetch(endpoint, {
+        const res = await fetch('/api/gemini/config', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ symbol: sym })
+          body: JSON.stringify({
+            provider: provider,
+            base_url: baseUrl,
+            api_key: apiKey,
+            model: model
+          })
         });
         const data = await res.json();
-        if (res.ok) {
-          updateBotBadge(enable);
-          if (enable) {
-            showResultBox(true, `TRADING AUTOMATICO AVVIATO!\nStrategia verificata: ${data.active_strategy ? data.active_strategy.action + ' - ' + data.active_strategy.scalping_setup : 'Attiva'}\nConto ID: ${data.account ? data.account.account_id : ''} | Buying Power: $${data.account ? data.account.buying_power.toLocaleString() : ''}`);
-          } else {
-            showResultBox(true, 'Trading automatico disabilitato. Le posizioni aperte sono mantenute.');
-          }
+        showAIResultBox(true, `Configurazione AI Salvata:\nProvider: ${data.provider}\nModello: ${data.model}\nEndpoint: ${data.base_url}`);
+        const gText = document.getElementById('geminiStatusText');
+        if (gText) gText.innerText = `AI: ${data.model}`;
+      } catch (e) {
+        showAIResultBox(false, `Errore salvataggio AI: ${e.message}`);
+      }
+    }
+
+    async function testGeminiConnection() {
+      showAIResultBox(null, 'Test connessione in corso con il Gateway AI...');
+      try {
+        const res = await fetch('/api/gemini/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showAIResultBox(true, `✓ SUCCESS: Connesso!\nModello: ${data.model}\nRisposta Gateway: "${data.reply}"`);
         } else {
-          showResultBox(false, `AVVIO BLOCCATO: ${data.detail || 'Impossibile avviare il trading automatico'}`);
-          alert(`AVVIO BLOCCATO:\n${data.detail || 'Verifica la strategia e il portafoglio prima di avviare il bot.'}`);
+          showAIResultBox(false, `ERRORE CONNESSIONE: ${data.error || 'Autenticazione fallita'}`);
         }
       } catch (e) {
-        showResultBox(false, `Errore operazione bot: ${e.message}`);
+        showAIResultBox(false, `Errore test: ${e.message}`);
       }
     }
 
-    async function emergencyStop() {
-      if (confirm('Sei sicuro di voler attivare l EMERGENCY STOP? Tutte le operazioni verranno bloccate immediatamente.')) {
-        const res = await fetch('/bot/emergency-stop', { method: 'POST' });
-        if (res.ok) {
-          updateBotBadge(false);
-          alert('EMERGENCY STOP ATTIVATO.');
+    async function fetchAvailableModels() {
+      showAIResultBox(null, 'Interrogazione modelli disponibili dal Gateway...');
+      try {
+        const res = await fetch('/api/gemini/models');
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          const select = document.getElementById('geminiModelSelect');
+          const currentVal = select.value;
+          select.innerHTML = '';
+          data.models.forEach(m => {
+            const opt = document.createElement('option');
+            const cleanName = m.name.replace('models/', '');
+            opt.value = cleanName;
+            opt.innerText = `${m.displayName || cleanName} (${cleanName})`;
+            select.appendChild(opt);
+          });
+          select.value = currentVal || data.models[0].name.replace('models/', '');
+          showAIResultBox(true, `Trovati ${data.models.length} modelli disponibili.`);
         }
+      } catch (e) {
+        showAIResultBox(false, `Errore recupero modelli: ${e.message}`);
       }
-    }
-
-    function showResultBox(isSuccess, text) {
-      const box = document.getElementById('testResultBox');
-      box.classList.remove('hidden');
-      box.className = isSuccess
-        ? 'p-4 rounded-xl text-xs font-mono border bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-        : 'p-4 rounded-xl text-xs font-mono border bg-rose-500/10 border-rose-500/30 text-rose-300';
-      box.innerText = text;
     }
 
     async function saveIBKRConfig() {
@@ -1120,16 +1671,18 @@
           })
         });
         const data = await res.json();
-        showIBKRResultBox(true, `Configurazione IBKR salvata: ${data.username} (${data.trading_mode})`);
+        showIBKRResultBox(true, `Credenziali IBKR salvate con successo: ${data.username} (${data.trading_mode})`);
         const statusTextEl = document.getElementById('ibkrStatusText');
         if (statusTextEl) statusTextEl.innerText = `IBKR: ${data.trading_mode}`;
+        const b = document.getElementById('overviewModeBadge');
+        if (b) b.innerText = data.trading_mode.toUpperCase();
       } catch (e) {
-        showIBKRResultBox(false, `Errore salvataggio: ${e.message}`);
+        showIBKRResultBox(false, `Errore salvataggio IBKR: ${e.message}`);
       }
     }
 
     async function testIBKRConnection() {
-      showIBKRResultBox(null, 'Test connessione IBKR Gateway in corso...');
+      showIBKRResultBox(null, 'Test connessione socket IBKR Gateway in corso...');
       try {
         const res = await fetch('/api/ibkr/test', { method: 'POST' });
         const data = await res.json();
@@ -1137,127 +1690,74 @@
         const text = document.getElementById('ibkrStatusText');
 
         if (data.success) {
-          showIBKRResultBox(true, `✓ Connesso: ${data.message}. Account: ${data.account_id}, Liquidità: $${(data.net_liquidation || 0).toFixed(2)}`);
+          showIBKRResultBox(true, `✓ Connesso: ${data.message}.\nAccount: ${data.account || 'Identificato'}`);
           if (badge) badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-          if (text) text.innerText = `IBKR: Connesso (${data.trading_mode})`;
+          if (text) text.innerText = `IBKR: Connesso (${data.account || 'OK'})`;
+          await loadPortfolioData();
         } else {
-          showIBKRResultBox(false, `✗ ${data.message}`);
-          if (badge) badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30';
-          if (text) text.innerText = 'IBKR: Errore connessione';
+          showIBKRResultBox(false, `✗ Connessione fallita: ${data.message || data.error}`);
+          if (badge) badge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30';
+          if (text) text.innerText = 'IBKR: Disconnesso';
         }
       } catch (e) {
-        showIBKRResultBox(false, `Errore: ${e.message}`);
+        showIBKRResultBox(false, `Errore test IBKR: ${e.message}`);
       }
     }
 
-    async function loadPortfolioData() {
+    async function emergencyStop() {
+      if (!confirm('ATTENZIONE: Sei sicuro di voler attivare il blocco di emergenza immediato?')) return;
       try {
-        const res = await fetch('/portfolio');
-        if (res.ok) {
-          const data = await res.json();
-          // Supporta sia formato aggregato che vecchio
-          const totalVal = data.total_value !== undefined ? data.total_value : (data.portfolio?.account?.total_value || 0);
-          const cashBal = data.cash_balance !== undefined ? data.cash_balance : (data.portfolio?.account?.cash_balance || 0);
-          const buyPow = data.buying_power !== undefined ? data.buying_power : (data.portfolio?.account?.buying_power || 0);
-          const unPnL = data.unrealized_pnl !== undefined ? data.unrealized_pnl : (data.portfolio?.account?.unrealized_pnl || 0);
-          const margin = data.margin_used !== undefined ? data.margin_used : (data.portfolio?.account?.margin_used || 0);
-          const accId = data.account_id || data.portfolio?.account?.account_id || '-';
-          const positions = data.positions || data.portfolio?.positions || [];
-          const executions = data.executions || [];
-
-          document.getElementById('portfolioAccountId').innerText = accId;
-          document.getElementById('portfolioNetLiq').innerText = `€${totalVal.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          document.getElementById('portfolioCash').innerText = `€${cashBal.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          document.getElementById('portfolioBuyingPower').innerText = `€${buyPow.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          
-          const pnlEl = document.getElementById('portfolioUnrealizedPnL');
-          pnlEl.innerText = `€${unPnL.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          pnlEl.className = unPnL >= 0 ? 'text-emerald-400 font-mono font-bold text-sm' : 'text-rose-400 font-mono font-bold text-sm';
-
-          document.getElementById('portfolioMarginUsed').innerText = `€${margin.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          document.getElementById('portfolioTradingMode').innerText = (data.trading_mode || 'PAPER').toUpperCase();
-          document.getElementById('positionsCountBadge').innerText = `${positions.length} posizioni`;
-
-          // Popola tabella posizioni
-          const posTbody = document.getElementById('positionsTableBody');
-          if (positions.length > 0) {
-            posTbody.innerHTML = positions.map(p => {
-              const pnlClass = (p.unrealized_pnl >= 0) ? 'text-emerald-400' : 'text-rose-400';
-              const dirBadge = (p.direction === 'LONG' || p.direction === 'BUY')
-                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">LONG</span>'
-                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold">SHORT</span>';
-              return `
-                <tr class="hover:bg-slate-800/40 transition">
-                  <td class="py-2.5 px-3 font-bold text-white">${p.symbol}</td>
-                  <td class="py-2.5 px-3 text-slate-400">${p.sec_type || 'STK'} ${p.exchange ? '('+p.exchange+')' : ''}</td>
-                  <td class="py-2.5 px-3">${dirBadge}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-200">${p.quantity}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-300">€${(p.entry_price || 0).toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-right text-white font-semibold">€${(p.current_price || 0).toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-200">€${(p.market_value || 0).toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-right font-bold ${pnlClass}">€${(p.unrealized_pnl || 0).toFixed(2)}</td>
-                </tr>
-              `;
-            }).join('');
-          } else {
-            posTbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-500 font-sans">Nessuna posizione aperta</td></tr>';
-          }
-
-          // Popola tabella esecuzioni
-          const execTbody = document.getElementById('executionsTableBody');
-          document.getElementById('executionsCountBadge').innerText = `${executions.length} transazioni`;
-          if (executions.length > 0) {
-            execTbody.innerHTML = executions.map(t => {
-              const actBadge = (t.action === 'BUY')
-                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">ACQUISTO</span>'
-                : '<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold">VENDITA</span>';
-              return `
-                <tr class="hover:bg-slate-800/40 transition">
-                  <td class="py-2.5 px-3 text-slate-400 font-mono text-[11px]">${t.id || '-'}</td>
-                  <td class="py-2.5 px-3 font-bold text-white">${t.symbol}</td>
-                  <td class="py-2.5 px-3">${actBadge}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-200">${t.quantity}</td>
-                  <td class="py-2.5 px-3 text-right text-white font-semibold">€${(t.price || 0).toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-right text-slate-400">€${(t.commission || 0).toFixed(2)}</td>
-                  <td class="py-2.5 px-3 text-right font-bold ${(t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}">€${(t.realized_pnl || 0).toFixed(2)}</td>
-                </tr>
-              `;
-            }).join('');
-          } else {
-            execTbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-500 font-sans">Nessuna transazione recente registrata da IBKR</td></tr>';
-          }
-
-          document.getElementById('portfolioDataBox').classList.remove('hidden');
-          showIBKRResultBox(true, `Portfolio caricato con successo da IBKR (${accId}): ${positions.length} posizioni trovate.`);
-        }
+        const res = await fetch('/bot/emergency-stop', { method: 'POST' });
+        const data = await res.json();
+        alert('EMERGENCY STOP ATTIVATO! ' + data.action);
+        await updateSymbolBotStatus();
+        await fetchBotLogs();
       } catch (e) {
-        showIBKRResultBox(false, `Errore caricamento portfolio: ${e.message}`);
+        alert('Errore blocco emergenza: ' + e.message);
       }
     }
 
-    function showIBKRResultBox(success, message) {
-      const box = document.getElementById('ibkrTestResultBox');
-      box.classList.remove('hidden', 'bg-emerald-900/30', 'border-emerald-600', 'text-emerald-300', 'bg-red-900/30', 'border-red-600', 'text-red-300', 'bg-blue-900/30', 'border-blue-600', 'text-blue-300');
-      
+    function showAIResultBox(success, msg) {
+      const b = document.getElementById('aiResultBox');
+      b.classList.remove('hidden', 'bg-emerald-950/60', 'text-emerald-300', 'border-emerald-800', 'bg-rose-950/60', 'text-rose-300', 'border-rose-800', 'bg-slate-900', 'text-slate-300');
       if (success === true) {
-        box.classList.add('bg-emerald-900/30', 'border-emerald-600', 'text-emerald-300');
+        b.classList.add('bg-emerald-950/60', 'text-emerald-300', 'border', 'border-emerald-800');
       } else if (success === false) {
-        box.classList.add('bg-red-900/30', 'border-red-600', 'text-red-300');
+        b.classList.add('bg-rose-950/60', 'text-rose-300', 'border', 'border-rose-800');
       } else {
-        box.classList.add('bg-blue-900/30', 'border-blue-600', 'text-blue-300');
+        b.classList.add('bg-slate-900', 'text-slate-300', 'border', 'border-slate-800');
       }
-      box.innerText = message;
+      b.innerText = msg;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadInitialStatus();
-      switchSymbolTab('XAUUSD');
-      // Polling periodico ogni 5 secondi per log, status bot e operazioni svolte
+    function showIBKRResultBox(success, msg) {
+      const b = document.getElementById('ibkrResultBox');
+      b.classList.remove('hidden', 'bg-emerald-950/60', 'text-emerald-300', 'border-emerald-800', 'bg-rose-950/60', 'text-rose-300', 'border-rose-800', 'bg-slate-900', 'text-slate-300');
+      if (success === true) {
+        b.classList.add('bg-emerald-950/60', 'text-emerald-300', 'border', 'border-emerald-800');
+      } else if (success === false) {
+        b.classList.add('bg-rose-950/60', 'text-rose-300', 'border', 'border-rose-800');
+      } else {
+        b.classList.add('bg-slate-900', 'text-slate-300', 'border', 'border-slate-800');
+      }
+      b.innerText = msg;
+    }
+
+    // --- AUTO-REFRESH PERIODICO ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadInitialStatus();
+      await loadPortfolioData();
+
+      // Refresh automatico ogni 10 secondi per log, stato bot e portafoglio
       setInterval(() => {
         updateSymbolBotStatus();
-        fetchBotOperations();
         fetchBotLogs();
-      }, 5000);
+        fetchBotOperations();
+      }, 10000);
+
+      setInterval(() => {
+        loadPortfolioData();
+      }, 30000);
     });
   </script>
 </body>
