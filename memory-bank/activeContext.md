@@ -1,7 +1,7 @@
 # activeContext.md - Tradest AI Trading Bot
 
 ## Stato Attuale
-- **Versione Corrente:** `1.7.9`
+- **Versione Corrente:** `1.7.10`
 - **Data:** 2026-10-17
 - **Repository GitHub:** [`https://github.com/ciacky85/tradest`](https://github.com/ciacky85/tradest)
 - **Account GitHub:** `ciacky85`

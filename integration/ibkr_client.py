@@ -250,6 +250,43 @@ class IBKRClient:
 
         return {"order_id": order_id, "status": "Unknown", "filled": False}
 
+    async def get_open_orders(self, symbol: str) -> list[dict[str, Any]]:
+        """Restituisce gli ordini aperti su IBKR per il simbolo indicato."""
+        if not self._ib or not self._ib.isConnected():
+            return []
+        orders = []
+        try:
+            for trade in self._ib.openTrades():
+                contract = trade.contract
+                if not contract:
+                    continue
+                sym = getattr(contract, "symbol", "")
+                if sym.upper() == symbol.upper():
+                    orders.append({
+                        "order_id": str(trade.order.orderId) if trade.order else None,
+                        "action": trade.order.action if trade.order else "",
+                        "status": getattr(trade.orderStatus, "status", "Unknown"),
+                        "symbol": sym,
+                        "quantity": trade.order.totalQuantity if trade.order else 0,
+                    })
+        except Exception as e:
+            logger.error("Errore recupero ordini aperti IBKR", symbol=symbol, error=str(e))
+        return orders
+
+    async def cancel_order(self, order_id: str) -> bool:
+        """Annulla un ordine aperto su IBKR."""
+        if not self._ib or not self._ib.isConnected():
+            return False
+        try:
+            for trade in self._ib.openTrades():
+                if trade.order and str(trade.order.orderId) == str(order_id):
+                    self._ib.cancelOrder(trade.order)
+                    await asyncio.sleep(0.3)
+                    return True
+        except Exception as e:
+            logger.error("Errore annullamento ordine IBKR", order_id=order_id, error=str(e))
+        return False
+
     async def get_portfolio(self) -> Portfolio:
         """
         Recupera i dati del portafoglio (liquidità, cash, margine, P&L, posizioni) da IBKR.

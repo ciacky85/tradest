@@ -23,6 +23,7 @@ from data.database import get_db
 from data.market_analyzer import get_market_analyzer
 from integration.ibkr_client import get_ibkr_client
 from strategy.scalping_strategy import get_scalping_manager
+from utils.helpers import market_analysis_allowed
 from utils.logger import get_logger
 
 logger = get_logger("bot_engine")
@@ -38,6 +39,18 @@ class MultiBotEngine:
         self.ib_client = get_ibkr_client()
         self.db = get_db()
         self._lock = asyncio.Lock()
+        self._market_closed_logged: set[str] = set()
+
+    async def _load_market_hours(self) -> dict[str, Any]:
+        """Carica la configurazione degli orari di mercato salvata."""
+        return {
+            "enabled": await self.db.get_config("market_hours_enabled", True),
+            "timezone": await self.db.get_config("market_hours_timezone", "Europe/Rome"),
+            "weekdays": await self.db.get_config("market_hours_weekdays", "mon,tue,wed,thu,fri"),
+            "open_time": await self.db.get_config("market_hours_open_time", "15:30"),
+            "close_time": await self.db.get_config("market_hours_close_time", "22:00"),
+            "pre_open_minutes": int(await self.db.get_config("market_hours_pre_open_minutes", 10)),
+        }
 
     async def initialize_from_db(self) -> None:
         """Al riavvio del server, riattiva i bot che erano marcati come attivi."""
@@ -115,6 +128,30 @@ class MultiBotEngine:
             while True:
                 loop_count += 1
                 try:
+                    # 0. Applica le condizioni di orario di mercato configurate
+                    market_cfg = await self._load_market_hours()
+                    allowed, reason = market_analysis_allowed(market_cfg)
+                    if not allowed:
+                        if sym not in self._market_closed_logged:
+                            self._market_closed_logged.add(sym)
+                            await self.db.log_bot_event(
+                                symbol=sym,
+                                level="INFO",
+                                message=f"Mercato chiuso: {reason}. In attesa della finestra pre-apertura configurata.",
+                                metadata={"market_hours": market_cfg, "reason": reason},
+                            )
+                        await asyncio.sleep(60)
+                        continue
+                    else:
+                        if sym in self._market_closed_logged:
+                            self._market_closed_logged.discard(sym)
+                            await self.db.log_bot_event(
+                                symbol=sym,
+                                level="INFO",
+                                message=f"Mercato aperto: analisi e decisioni riattivate secondo la configurazione orari.",
+                                metadata={"market_hours": market_cfg},
+                            )
+
                     # 1. Verifica Portafoglio Reale
                     portfolio = await self.ib_client.get_portfolio()
                     existing_pos = None
@@ -234,7 +271,20 @@ class MultiBotEngine:
                         exchange = existing_pos.exchange if existing_pos else "SMART"
                         currency = existing_pos.currency if existing_pos else "USD"
 
-                        # Se esiste già un ordine SELL pendente per questo simbolo, verifica lo stato su IBKR
+                        # Evita doppioni reali: se su IBKR esiste già un ordine SELL aperto,
+                        # rispetta quello e non ne vengono aggiunti altri.
+                        open_orders = await self.ib_client.get_open_orders(sym)
+                        open_sell_orders = [o for o in open_orders if (o.get("action") or "").upper() == "SELL"]
+                        if open_sell_orders:
+                            await self.db.log_bot_event(
+                                symbol=sym,
+                                level="INFO",
+                                message=f"Ordine SELL già presente su IBKR ({open_sell_orders[0].get('order_id')}). Non vengono aggiunti altri ordini di vendita.",
+                                metadata={"open_sell_orders": open_sell_orders},
+                            )
+                            continue
+
+                        # Se esiste già un ordine SELL pendente registrato, verifica lo stato su IBKR
                         # senza crearne un altro (evita doppioni di vendita in attesa di esecuzione).
                         pending_ops = await self.db.get_pending_operations(sym)
                         existing_pending = pending_ops[0] if pending_ops else None

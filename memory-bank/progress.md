@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.9** (2026-10-17): Avvio automatico delle connessioni Omniroute/AI e IBKR con aggiornamento portafoglio; pulizia automatica all'avvio di operazioni FAILED/SIMULATED/vecchie EXECUTED non verificate; gestione ordine SELL pending unico con aggiornamento stato da IBKR e visualizzazione PENDING.
+- **v1.7.10** (2026-10-17): Aggiunta schermata dedicata agli orari di mercato e finestra pre-apertura; il bot applica tali condizioni (niente analisi/ordini a mercato chiuso); blocco dei doppioni di ordine SELL reale su IBKR (verifica open orders prima di inviarne nuovi).
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi

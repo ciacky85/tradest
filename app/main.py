@@ -67,6 +67,15 @@ class IBKRConfigRequest(BaseModel):
     trading_mode: Optional[str] = "paper"  # 'paper' o 'live'
 
 
+class MarketHoursRequest(BaseModel):
+    enabled: Optional[bool] = True
+    timezone: Optional[str] = "Europe/Rome"
+    weekdays: Optional[str] = "mon,tue,wed,thu,fri"
+    open_time: Optional[str] = "15:30"
+    close_time: Optional[str] = "22:00"
+    pre_open_minutes: Optional[int] = 10
+
+
 # ---------------------------------------------------------------------------
 # Lifespan context manager (startup e shutdown)
 # ---------------------------------------------------------------------------
@@ -597,6 +606,50 @@ async def test_ibkr_connection() -> dict[str, Any]:
             "host": ib_client.host,
             "port": ib_client.port,
         }
+
+
+# ---------------------------------------------------------------------------
+# Endpoint Orari di Mercato & Pianificazione Analisi
+# ---------------------------------------------------------------------------
+@app.get(
+    "/api/market-hours",
+    summary="Recupera la configurazione degli orari di mercato",
+    tags=["Configurazione"],
+)
+async def get_market_hours() -> dict[str, Any]:
+    """Restituisce la configurazione corrente per l'analisi nei pressi dell'apertura mercato."""
+    db = get_db()
+    return {
+        "enabled": (await db.get_config("market_hours_enabled", True)),
+        "timezone": await db.get_config("market_hours_timezone", "Europe/Rome"),
+        "weekdays": await db.get_config("market_hours_weekdays", "mon,tue,wed,thu,fri"),
+        "open_time": await db.get_config("market_hours_open_time", "15:30"),
+        "close_time": await db.get_config("market_hours_close_time", "22:00"),
+        "pre_open_minutes": int(await db.get_config("market_hours_pre_open_minutes", 10)),
+    }
+
+
+@app.post(
+    "/api/market-hours",
+    summary="Salva la configurazione degli orari di mercato",
+    tags=["Configurazione"],
+)
+async def save_market_hours(req: MarketHoursRequest) -> dict[str, Any]:
+    """Salva gli orari di mercato e la finestra di analisi pre-apertura."""
+    db = get_db()
+    if req.enabled is not None:
+        await db.set_config("market_hours_enabled", bool(req.enabled))
+    if req.timezone is not None:
+        await db.set_config("market_hours_timezone", req.timezone.strip())
+    if req.weekdays is not None:
+        await db.set_config("market_hours_weekdays", req.weekdays.strip().lower())
+    if req.open_time is not None:
+        await db.set_config("market_hours_open_time", req.open_time.strip())
+    if req.close_time is not None:
+        await db.set_config("market_hours_close_time", req.close_time.strip())
+    if req.pre_open_minutes is not None:
+        await db.set_config("market_hours_pre_open_minutes", int(req.pre_open_minutes))
+    return {"status": "saved"}
 
 
 # ---------------------------------------------------------------------------

@@ -778,6 +778,67 @@
           <div id="ibkrResultBox" class="hidden p-3 rounded-xl text-xs font-mono whitespace-pre-wrap"></div>
         </div>
       </div>
+
+      <!-- Sottosezione 3: Orari di Mercato & Pianificazione Analisi -->
+      <div class="card rounded-2xl p-6 space-y-5 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+              <i class="fa-solid fa-clock text-lg"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-white">3. Orari di Mercato & Finestra di Analisi</h2>
+              <p class="text-xs text-slate-400">L'analisi e gli ordini vengono eseguiti solo poco prima dell'apertura e durante la sessione di mercato</p>
+            </div>
+          </div>
+          <span class="text-xs text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-semibold">Scheduling</span>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Fuso Orario</label>
+              <input type="text" id="marketTimezoneInput" value="Europe/Rome"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Giorni di Mercato Aperti</label>
+              <input type="text" id="marketWeekdaysInput" value="mon,tue,wed,thu,fri"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Orario Apertura (HH:MM)</label>
+              <input type="text" id="marketOpenTimeInput" value="15:30"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Orario Chiusura (HH:MM)</label>
+              <input type="text" id="marketCloseTimeInput" value="22:00"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Minuti Pre-Apertura per Analisi</label>
+              <input type="number" id="marketPreOpenMinutesInput" value="10" min="0" max="120"
+                class="input-field w-full px-3 py-2.5 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="marketHoursEnabledInput" checked class="rounded border-slate-700 bg-slate-800 text-sky-500" />
+              <span>Abilita filtro orari di mercato (consigliato)</span>
+            </label>
+            <button onclick="saveMarketHoursConfig()" class="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg shadow-amber-600/25">
+              <i class="fa-solid fa-save"></i> Salva Orari di Mercato
+            </button>
+          </div>
+
+          <div id="marketHoursResultBox" class="hidden p-3 rounded-xl text-xs font-mono whitespace-pre-wrap"></div>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -983,6 +1044,8 @@
       } catch (e) {
         console.error('Errore config IBKR iniziale', e);
       }
+
+      await loadMarketHoursConfig();
 
       // Carica i simboli abilitati
       await loadSymbolsConfiguration();
@@ -1975,6 +2038,51 @@
         if (b) b.innerText = data.trading_mode.toUpperCase();
       } catch (e) {
         showIBKRResultBox(false, `Errore salvataggio IBKR: ${e.message}`);
+      }
+    }
+
+    async function loadMarketHoursConfig() {
+      try {
+        const res = await fetch('/api/market-hours');
+        if (res.ok) {
+          const cfg = await res.json();
+          document.getElementById('marketHoursEnabledInput').checked = !!cfg.enabled;
+          document.getElementById('marketTimezoneInput').value = cfg.timezone || 'Europe/Rome';
+          document.getElementById('marketWeekdaysInput').value = cfg.weekdays || 'mon,tue,wed,thu,fri';
+          document.getElementById('marketOpenTimeInput').value = cfg.open_time || '15:30';
+          document.getElementById('marketCloseTimeInput').value = cfg.close_time || '22:00';
+          document.getElementById('marketPreOpenMinutesInput').value = cfg.pre_open_minutes ?? 10;
+        }
+      } catch (e) {
+        console.error('Errore caricamento orari mercato', e);
+      }
+    }
+
+    async function saveMarketHoursConfig() {
+      const payload = {
+        enabled: document.getElementById('marketHoursEnabledInput').checked,
+        timezone: document.getElementById('marketTimezoneInput').value.trim(),
+        weekdays: document.getElementById('marketWeekdaysInput').value.trim(),
+        open_time: document.getElementById('marketOpenTimeInput').value.trim(),
+        close_time: document.getElementById('marketCloseTimeInput').value.trim(),
+        pre_open_minutes: parseInt(document.getElementById('marketPreOpenMinutesInput').value) || 10
+      };
+
+      const box = document.getElementById('marketHoursResultBox');
+      try {
+        const res = await fetch('/api/market-hours', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        box.classList.remove('hidden');
+        box.className = 'p-3 rounded-xl text-xs font-mono whitespace-pre-wrap bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        box.innerText = `✓ Orari di mercato salvati:\nApertura: ${payload.open_time} | Chiusura: ${payload.close_time}\nPre-analisi: ${payload.pre_open_minutes} min | Giorni: ${payload.weekdays}`;
+      } catch (e) {
+        box.classList.remove('hidden');
+        box.className = 'p-3 rounded-xl text-xs font-mono whitespace-pre-wrap bg-rose-500/10 text-rose-400 border border-rose-500/20';
+        box.innerText = `Errore salvataggio orari: ${e.message}`;
       }
     }
 

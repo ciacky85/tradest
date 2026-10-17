@@ -48,6 +48,48 @@ def is_trading_hours(
     return start_hour <= now.hour < end_hour and now.weekday() < 5  # Lun-Ven
 
 
+def market_analysis_allowed(market_cfg: dict[str, Any]) -> tuple[bool, str]:
+    """
+    Verifica se in questo momento è consentito analizzare il mercato ed emettere ordini.
+
+    Regola: l'analisi deve avvenire poco prima dell'apertura (open_time - pre_open_minutes)
+    e rimanere consentita fino alla chiusura. Fuori da questa finestra non si analizza e non
+    si emettono ordini.
+    """
+    if not market_cfg.get("enabled", True):
+        return True, ""
+
+    tz_name = market_cfg.get("timezone", "Europe/Rome")
+    weekdays_raw = market_cfg.get("weekdays", "mon,tue,wed,thu,fri")
+    weekdays = {d.strip().lower()[:3] for d in str(weekdays_raw).split(",") if d.strip()}
+
+    try:
+        local_tz = tz.gettz(tz_name) or tz.gettz("Europe/Rome")
+    except Exception:
+        local_tz = tz.gettz("Europe/Rome")
+
+    now = datetime.now(local_tz)
+    day = now.strftime("%a").lower()
+    if day not in weekdays:
+        return False, f"mercato chiuso ({now.strftime('%A')})"
+
+    try:
+        open_dt = datetime.strptime(market_cfg.get("open_time", "15:30"), "%H:%M")
+        close_dt = datetime.strptime(market_cfg.get("close_time", "22:00"), "%H:%M")
+        open_minutes = open_dt.hour * 60 + open_dt.minute
+        close_minutes = close_dt.hour * 60 + close_dt.minute
+        pre_open = int(market_cfg.get("pre_open_minutes", 10))
+    except (TypeError, ValueError):
+        return True, ""
+
+    start_minutes = max(0, open_minutes - pre_open)
+    now_minutes = now.hour * 60 + now.minute
+
+    if start_minutes <= now_minutes <= close_minutes:
+        return True, ""
+    return False, f"fuori orario (finestra {market_cfg.get('open_time', '15:30')} - {market_cfg.get('close_time', '22:00')}, pre-analisi {pre_open} min)"
+
+
 def format_currency(amount: float, currency: str = "USD") -> str:
     """
     Formatta un importo come stringa valuta.
