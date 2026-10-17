@@ -90,6 +90,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await db.connect()
         logger.info("Database inizializzato con successo")
 
+        # Pulizia delle operazioni non realmente eseguite (errori, simulate, failed)
+        try:
+            removed = await db.cleanup_non_executed_operations()
+            if removed:
+                logger.info("Pulizia operazioni non eseguite completata", removed=removed)
+        except Exception as cleanup_exc:
+            logger.warning("Pulizia operazioni non eseguite fallita", error=str(cleanup_exc))
+
         # Ripristina configurazione AI salvata se presente
         saved_prov = await db.get_config("ai_provider")
         saved_url = await db.get_config("ai_base_url")
@@ -129,6 +137,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             port=int(saved_ib_port) if saved_ib_port else settings.ibkr_port,
             account_id=saved_ib_acc or settings.ibkr_account_id,
         )
+
+        # Connessione automatica all'avvio: Omniroute/Google AI e IBKR
+        try:
+            ai_test = await client.test_connection()
+            logger.info("Connessione automatica AI completata", success=ai_test.get("success"), provider=client.provider)
+        except Exception as ai_exc:
+            logger.warning("Connessione automatica AI fallita", error=str(ai_exc))
+
+        try:
+            ib_connected = await ib_client.connect(timeout=5.0)
+            logger.info("Connessione automatica IBKR completata", connected=ib_connected)
+            if ib_connected:
+                try:
+                    portfolio = await ib_client.get_all_account_data()
+                    logger.info(
+                        "Portafoglio aggiornato all'avvio",
+                        account_id=portfolio.get("account_id"),
+                        positions=len(portfolio.get("positions", [])),
+                    )
+                except Exception as pf_exc:
+                    logger.warning("Aggiornamento portafoglio all'avvio fallito", error=str(pf_exc))
+        except Exception as ib_exc:
+            logger.warning("Connessione automatica IBKR fallita", error=str(ib_exc))
 
     except Exception as exc:
         logger.error("Errore inizializzazione database", error=str(exc))

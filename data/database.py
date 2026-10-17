@@ -459,6 +459,35 @@ class Database:
             )
             await conn.commit()
 
+    async def get_pending_operations(self, symbol: str) -> list[dict[str, Any]]:
+        """Recupera le operazioni pending per un simbolo, in ordine decrescente."""
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT * FROM executed_operations WHERE symbol = ? AND status = 'PENDING' ORDER BY executed_at DESC, id DESC",
+                (symbol.upper(),),
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(r) for r in rows]
+
+    async def cleanup_non_executed_operations(self) -> int:
+        """
+        Elimina le operazioni non realmente eseguite: FAILED, SIMULATED
+        e quelle simulate storiche (simulated=1).
+        Ritorna il numero di righe rimosse.
+        """
+        async with aiosqlite.connect(self.db_path, timeout=5.0) as conn:
+            cursor = await conn.execute(
+                """
+                DELETE FROM executed_operations
+                WHERE status IN ('FAILED', 'SIMULATED')
+                   OR simulated = 1
+                   OR (status = 'EXECUTED' AND details LIKE '%inviato a IBKR%')
+                """
+            )
+            await conn.commit()
+            return cursor.rowcount if cursor.rowcount is not None else 0
+
     async def get_executed_operations(
         self,
         symbol: Optional[str] = None,
@@ -477,7 +506,7 @@ class Database:
             params.append(symbol.upper())
 
         if not include_simulated:
-            where_parts.append("status = 'EXECUTED'")
+            where_parts.append("status IN ('EXECUTED', 'PENDING')")
             where_parts.append("simulated = 0")
 
         where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""

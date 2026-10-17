@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.8** (2026-10-17): Corretto l'ordine reale IBKR per marcare `EXECUTED` solo quando lo stato dell'ordine è `Filled` (non basta l'invio, altrimenti `FAILED`); convertiti i timestamp DB da UTC a orario locale Europe/Rome nella console log e nella tabella operazioni.
+- **v1.7.9** (2026-10-17): Avvio automatico delle connessioni Omniroute/AI e IBKR con aggiornamento portafoglio; pulizia automatica all'avvio di operazioni FAILED/SIMULATED/vecchie EXECUTED non verificate; gestione ordine SELL pending unico con aggiornamento stato da IBKR e visualizzazione PENDING.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi

@@ -232,6 +232,24 @@ class IBKRClient:
             logger.error("Errore invio ordine IBKR", symbol=symbol, action=action, error=str(e))
             return {"success": False, "error": str(e), "order_id": None}
 
+    async def get_order_status(self, order_id: str) -> dict[str, Any]:
+        """Recupera lo stato corrente di un ordine IBKR già inviato."""
+        if not self._ib or not self._ib.isConnected():
+            return {"order_id": order_id, "status": "Unknown", "filled": False}
+
+        try:
+            for trade in self._ib.trades():
+                if trade.order and str(trade.order.orderId) == str(order_id):
+                    return {
+                        "order_id": order_id,
+                        "status": getattr(trade.orderStatus, "status", "Unknown"),
+                        "filled": float(getattr(trade.orderStatus, "filled", 0.0)) > 0,
+                    }
+        except Exception as e:
+            logger.error("Errore recupero stato ordine IBKR", order_id=order_id, error=str(e))
+
+        return {"order_id": order_id, "status": "Unknown", "filled": False}
+
     async def get_portfolio(self) -> Portfolio:
         """
         Recupera i dati del portafoglio (liquidità, cash, margine, P&L, posizioni) da IBKR.

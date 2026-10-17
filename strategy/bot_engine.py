@@ -194,7 +194,7 @@ class MultiBotEngine:
 
                             if order_result.get("success"):
                                 status = "EXECUTED"
-                                details = f"Ordine reale BUY inviato a IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. Motivo: {reasoning[:100]}..."
+                                details = f"Ordine reale BUY eseguito su IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. Motivo: {reasoning[:100]}..."
                                 log_level = "SUCCESS"
                                 log_msg = f"Operazione reale LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. Ordine IBKR: {order_result.get('order_id')}. SL: ${sl} | TP: ${tp}."
                                 simulated = False
@@ -225,7 +225,6 @@ class MultiBotEngine:
                                 metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size, "simulated": simulated, "order_id": order_result.get("order_id"), "order_status": status},
                             )
                     elif action in ("SELL", "CLOSE"):
-                        op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"
                         op_type = "CLOSE_LONG" if (existing_pos and existing_pos.direction.value.upper() == "LONG") else "SHORT"
                         sl = strategy.get("stop_loss")
                         tp = strategy.get("take_profit")
@@ -235,47 +234,90 @@ class MultiBotEngine:
                         exchange = existing_pos.exchange if existing_pos else "SMART"
                         currency = existing_pos.currency if existing_pos else "USD"
 
-                        order_result = await self.ib_client.place_market_order(
-                            symbol=sym,
-                            action="SELL",
-                            quantity=float(size),
-                            sec_type=sec_type,
-                            exchange=exchange,
-                            currency=currency,
-                        )
+                        # Se esiste già un ordine SELL pendente per questo simbolo, verifica lo stato su IBKR
+                        # senza crearne un altro (evita doppioni di vendita in attesa di esecuzione).
+                        pending_ops = await self.db.get_pending_operations(sym)
+                        existing_pending = pending_ops[0] if pending_ops else None
 
-                        if order_result.get("success"):
-                            status = "EXECUTED"
-                            details = f"Ordine reale {action} inviato a IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. PnL: ${pnl_val:+.2f}."
-                            log_level = "WARNING"
-                            log_msg = f"Operazione reale {op_type} ({action}) su {sym} inviata a IBKR. Ordine: {order_result.get('order_id')}. PnL: ${pnl_val:+.2f}."
-                            simulated = False
+                        if existing_pending and existing_pending.get("order_id"):
+                            ib_status_info = await self.ib_client.get_order_status(existing_pending["order_id"])
+                            ib_status = ib_status_info.get("status", "Unknown")
+                            if ib_status_info.get("filled") or ib_status == "Filled":
+                                await self.db.record_executed_operation(
+                                    operation_id=existing_pending["operation_id"],
+                                    symbol=sym,
+                                    operation_type=op_type,
+                                    action=action,
+                                    quantity=float(size),
+                                    price=float(current_price),
+                                    stop_loss=float(sl) if sl else None,
+                                    take_profit=float(tp) if tp else None,
+                                    pnl=float(pnl_val),
+                                    status="EXECUTED",
+                                    details=f"Ordine SELL pendente ora eseguito su IBKR (order_id: {existing_pending['order_id']}). PnL: ${pnl_val:+.2f}.",
+                                )
+                                await self.db.log_bot_event(
+                                    symbol=sym,
+                                    level="WARNING",
+                                    message=f"Ordine SELL pendente ora eseguito su IBKR (order_id: {existing_pending['order_id']}). PnL: ${pnl_val:+.2f}.",
+                                    metadata={"operation_id": existing_pending["operation_id"], "action": action, "type": op_type, "order_id": existing_pending["order_id"], "order_status": "EXECUTED"},
+                                )
+                            else:
+                                await self.db.log_bot_event(
+                                    symbol=sym,
+                                    level="INFO",
+                                    message=f"Ordine SELL già pendente su IBKR (order_id: {existing_pending['order_id']}, stato: {ib_status}). In attesa di esecuzione.",
+                                    metadata={"operation_id": existing_pending["operation_id"], "action": action, "type": op_type, "order_id": existing_pending["order_id"], "order_status": ib_status},
+                                )
                         else:
-                            status = "FAILED"
-                            details = f"Ordine {action} non eseguito: {order_result.get('error')}. Nessuna operazione effettuata."
-                            log_level = "ERROR"
-                            log_msg = f"Ordine {action} NON eseguito su {sym}: {order_result.get('error')}"
-                            simulated = False
+                            op_id = f"PENDING-{sym}-SELL"
+                            order_result = await self.ib_client.place_market_order(
+                                symbol=sym,
+                                action="SELL",
+                                quantity=float(size),
+                                sec_type=sec_type,
+                                exchange=exchange,
+                                currency=currency,
+                            )
 
-                        await self.db.record_executed_operation(
-                            operation_id=op_id,
-                            symbol=sym,
-                            operation_type=op_type,
-                            action=action,
-                            quantity=float(size),
-                            price=float(current_price),
-                            stop_loss=float(sl) if sl else None,
-                            take_profit=float(tp) if tp else None,
-                            pnl=float(pnl_val),
-                            status=status,
-                            details=details,
-                        )
-                        await self.db.log_bot_event(
-                            symbol=sym,
-                            level=log_level,
-                            message=log_msg,
-                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size, "simulated": simulated, "order_id": order_result.get("order_id"), "order_status": status},
-                        )
+                            if order_result.get("success"):
+                                status = "EXECUTED"
+                                details = f"Ordine reale {action} eseguito su IBKR (order_id: {order_result.get('order_id')}). {size} {unit}. Setup: {setup}. PnL: ${pnl_val:+.2f}."
+                                log_level = "WARNING"
+                                log_msg = f"Operazione reale {op_type} ({action}) su {sym} eseguita su IBKR. Ordine: {order_result.get('order_id')}. PnL: ${pnl_val:+.2f}."
+                                simulated = False
+                            elif order_result.get("status") in ("Submitted", "PendingSubmit", "PreSubmit"):
+                                status = "PENDING"
+                                details = f"Ordine SELL inviato a IBKR in attesa di esecuzione (order_id: {order_result.get('order_id')}). Mercato chiuso o ordine non ancora riempito."
+                                log_level = "INFO"
+                                log_msg = f"Ordine SELL pendente su {sym} (order_id: {order_result.get('order_id')}). In attesa di esecuzione su IBKR."
+                                simulated = False
+                            else:
+                                status = "FAILED"
+                                details = f"Ordine {action} non eseguito: {order_result.get('error')}. Nessuna operazione effettuata."
+                                log_level = "ERROR"
+                                log_msg = f"Ordine {action} NON eseguito su {sym}: {order_result.get('error')}"
+                                simulated = False
+
+                            await self.db.record_executed_operation(
+                                operation_id=op_id,
+                                symbol=sym,
+                                operation_type=op_type,
+                                action=action,
+                                quantity=float(size),
+                                price=float(current_price),
+                                stop_loss=float(sl) if sl else None,
+                                take_profit=float(tp) if tp else None,
+                                pnl=float(pnl_val),
+                                status=status,
+                                details=details,
+                            )
+                            await self.db.log_bot_event(
+                                symbol=sym,
+                                level=log_level,
+                                message=log_msg,
+                                metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size, "simulated": simulated, "order_id": order_result.get("order_id"), "order_status": status},
+                            )
                     else:
                         await self.db.log_bot_event(
                             symbol=sym,
