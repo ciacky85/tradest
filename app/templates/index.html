@@ -1613,14 +1613,36 @@
     }
 
     async function testGeminiConnection() {
-      showAIResultBox(null, 'Test connessione in corso con il Gateway AI...');
+      const apiKeyVal = document.getElementById('geminiApiKeyInput').value.trim();
+      const baseUrlVal = document.getElementById('aiBaseUrlInput').value.trim();
+      const providerVal = document.getElementById('aiProviderSelect').value;
+      const modelVal = document.getElementById('geminiModelSelect').value;
+
+      showAIResultBox(null, 'Salvataggio configurazione e test connessione in corso con il Gateway AI...');
       try {
+        // Salva prima la configurazione attuale presente nei campi input per sincronizzare token ed endpoint
+        await fetch('/api/gemini/config', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            provider: providerVal,
+            base_url: baseUrlVal,
+            api_key: apiKeyVal,
+            model: modelVal
+          })
+        });
+
         const res = await fetch('/api/gemini/test', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-          showAIResultBox(true, `✓ SUCCESS: Connesso!\nModello: ${data.model}\nRisposta Gateway: "${data.reply}"`);
+          showAIResultBox(true, `✓ SUCCESS: Connesso!\nProvider: ${data.provider}\nModello: ${data.model}\nRisposta Gateway: "${data.reply}"`);
+          const gText = document.getElementById('geminiStatusText');
+          if (gText) gText.innerText = `AI: ${data.model}`;
+          const gBadge = document.getElementById('geminiStatusBadge');
+          if (gBadge) gBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
         } else {
-          showAIResultBox(false, `ERRORE CONNESSIONE: ${data.error || 'Autenticazione fallita'}`);
+          let errDetail = data.error || (data.detail ? JSON.stringify(data.detail) : 'Autenticazione fallita');
+          showAIResultBox(false, `ERRORE CONNESSIONE: ${errDetail}\nProvider attivo: ${data.provider || providerVal}`);
         }
       } catch (e) {
         showAIResultBox(false, `Errore test: ${e.message}`);

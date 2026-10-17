@@ -19,7 +19,7 @@ services:
       - APP_LOG_LEVEL=DEBUG
       - AI_PROVIDER=omniroute
       - AI_BASE_URL=http://192.168.1.212:9292/v1
-      - AI_API_KEY=sk-92fbd7ff0bd42a7d-69ee29-81742676
+      - AI_API_KEY=sk-92fbd7ff0bd42a7d-82e301-62dbdb1f
       - GEMINI_MODEL=carlo-gemini
       - IBKR_HOST=192.168.1.212
       - IBKR_PORT=4004
