@@ -160,14 +160,27 @@ class IBKRClient:
         Se il gateway non è attivo o siamo in modalità simulazione senza broker attivo,
         fornisce il riepilogo coerente.
         """
+        # Se non è connesso, prova ad attivare la connessione immediata a IBKR
+        if self._ib is None or not self._ib.isConnected():
+            try:
+                await self.connect(timeout=3.0)
+            except Exception as e:
+                logger.debug("Connessione preventiva get_portfolio", error=str(e))
+
         if self._ib is not None and self._ib.isConnected():
             try:
                 # Se l'account non è ancora settato, usa il primo disponibile
                 if not self.account_id and self._ib.managedAccounts():
                     self.account_id = self._ib.managedAccounts()[0]
 
+                # Forza l'aggiornamento sincrono con IBKR Gateway per raccogliere i dati freschi da socket
+                try:
+                    await asyncio.wait_for(self._ib.reqPositionsAsync(), timeout=3.0)
+                except Exception:
+                    pass
+
                 # Estrae i valori dall'accountSummary di ib_insync
-                account_values = await self._ib.accountSummaryAsync(self.account_id)
+                account_values = await asyncio.wait_for(self._ib.accountSummaryAsync(self.account_id), timeout=3.0)
                 summary_map = {}
                 for val in account_values:
                     try:
@@ -188,6 +201,9 @@ class IBKRClient:
 
                 if portfolio_items:
                     for item in portfolio_items:
+                        # Ignora posizioni con quantità 0 (chiuse o vendute)
+                        if item.position == 0:
+                            continue
                         direction = TradingDirection.LONG if item.position >= 0 else TradingDirection.SHORT
                         pos_obj = Position(
                             symbol=item.contract.symbol,
@@ -207,6 +223,8 @@ class IBKRClient:
                     # Fallback su ib.positions()
                     ib_positions = self._ib.positions(self.account_id)
                     for p in ib_positions:
+                        if p.position == 0:
+                            continue
                         direction = TradingDirection.LONG if p.position >= 0 else TradingDirection.SHORT
                         pos_obj = Position(
                             symbol=p.contract.symbol,

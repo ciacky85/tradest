@@ -639,11 +639,13 @@ async def search_market_symbols(q: str) -> dict[str, Any]:
                 results.append({
                     "symbol": sym,
                     "name": item.get("shortname") or item.get("longname") or sym,
-                    "exchange": item.get("exchange", "SMART"),
-                    "type": quote_type or "EQUITY",
+                    "exchange": item.get("exchDisp") or item.get("exchange", "SMART"),
+                    "exchange_raw": item.get("exchange", "SMART"),
+                    "type": item.get("typeDisp") or quote_type or "EQUITY",
                     "asset_class": asset_class,
                     "sec_type": sec_type,
                     "currency": item.get("currency", "USD"),
+                    "isin": item.get("isin") or item.get("asin") or item.get("exchangeSymbol") or sym,
                 })
     except Exception as e:
         logger.warning("Errore ricerca simboli Yahoo", error=str(e))
@@ -691,6 +693,68 @@ async def get_symbol_quote(symbol: str) -> dict[str, Any]:
             "change_pct": 0.0,
             "success": False,
             "error": str(e)
+        }
+
+
+@app.get(
+    "/api/symbols/chart/{symbol}",
+    summary="Recupera la serie storica dei prezzi e timestamp per il grafico",
+    tags=["Simboli"],
+)
+async def get_symbol_chart_data(symbol: str, range: str = "1mo", interval: str = "1d") -> dict[str, Any]:
+    """Restituisce le serie temporali (date, prezzi close, high, low, open, volume) per il grafico interattivo."""
+    import urllib.request
+    import urllib.parse
+    import json
+    from datetime import datetime
+
+    clean_sym = symbol.strip().upper()
+    try:
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(clean_sym)}?interval={interval}&range={range}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode())
+            res = data["chart"]["result"][0]
+            meta = res.get("meta", {})
+            timestamps = res.get("timestamp", [])
+            indicators = res.get("indicators", {}).get("quote", [{}])[0]
+            closes = indicators.get("close", [])
+            opens = indicators.get("open", [])
+            highs = indicators.get("high", [])
+            lows = indicators.get("low", [])
+            volumes = indicators.get("volume", [])
+
+            # Filtra eventuali null
+            valid_points = []
+            for i, ts in enumerate(timestamps):
+                c = closes[i] if i < len(closes) else None
+                if c is not None:
+                    valid_points.append({
+                        "time": datetime.fromtimestamp(ts).strftime("%d/%m/%Y"),
+                        "timestamp": ts,
+                        "close": round(c, 2),
+                        "open": round(opens[i], 2) if i < len(opens) and opens[i] is not None else round(c, 2),
+                        "high": round(highs[i], 2) if i < len(highs) and highs[i] is not None else round(c, 2),
+                        "low": round(lows[i], 2) if i < len(lows) and lows[i] is not None else round(c, 2),
+                        "volume": volumes[i] if i < len(volumes) and volumes[i] is not None else 0,
+                    })
+
+            return {
+                "success": True,
+                "symbol": clean_sym,
+                "currency": meta.get("currency", "USD"),
+                "exchange": meta.get("exchangeName", "SMART"),
+                "current_price": meta.get("regularMarketPrice") or (valid_points[-1]["close"] if valid_points else None),
+                "previous_close": meta.get("chartPreviousClose"),
+                "data": valid_points,
+            }
+    except Exception as e:
+        logger.warning(f"Errore recupero storico grafico per {clean_sym}", error=str(e))
+        return {
+            "success": False,
+            "symbol": clean_sym,
+            "error": str(e),
+            "data": [],
         }
 
 

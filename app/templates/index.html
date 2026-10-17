@@ -24,6 +24,7 @@
     }
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <style>
     body { background-color: #0b1120; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
     .card { background: #1e293b; border: 1px solid #334155; }
@@ -579,6 +580,58 @@
           <div id="searchResultsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Popolato via JS con i risultati -->
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL POPUP GRAFICO ANDAMENTO TITOLO & PREZZI -->
+    <div id="symbolChartModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="card rounded-2xl w-full max-w-3xl border border-slate-700 shadow-2xl p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
+              <i class="fa-solid fa-chart-candlestick text-lg"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 id="modalChartSymbol" class="text-lg font-bold text-white font-mono">-</h3>
+                <span id="modalChartExchange" class="text-xs uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono border border-slate-700">-</span>
+                <span id="modalChartIsin" class="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">-</span>
+              </div>
+              <p id="modalChartName" class="text-xs text-slate-400">-</p>
+            </div>
+          </div>
+          <button onclick="closeSymbolChartModal()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Metric Prezzi -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Ultimo Prezzo</span>
+            <span id="modalChartPrice" class="text-emerald-400 font-mono font-bold text-base">-</span>
+          </div>
+          <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Chiusura Prec.</span>
+            <span id="modalChartPrevClose" class="text-slate-200 font-mono font-bold text-base">-</span>
+          </div>
+          <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Variazione</span>
+            <span id="modalChartChange" class="font-mono font-bold text-base text-slate-300">-</span>
+          </div>
+          <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Valuta</span>
+            <span id="modalChartCurrency" class="text-sky-300 font-mono font-bold text-base">USD</span>
+          </div>
+        </div>
+
+        <!-- Canvas Grafico -->
+        <div class="relative w-full h-72 bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-center">
+          <div id="chartLoadingSpinner" class="hidden text-sky-400 text-xs font-mono flex items-center gap-2">
+            <i class="fa-solid fa-spinner fa-spin text-base"></i> Caricamento storico andamento prezzi...
+          </div>
+          <canvas id="symbolChartCanvas" class="w-full h-full"></canvas>
         </div>
       </div>
     </div>
@@ -1582,10 +1635,11 @@
                         onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<i class=\\'fa-solid fa-chart-line text-sky-400 text-lg\\'></i>';" />
                     </div>
                     <div>
-                      <div class="flex items-center gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
                         <span class="font-bold text-white text-sm font-mono">${sym}</span>
-                        <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">${item.exchange || 'SMART'}</span>
+                        <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700" title="Mercato di quotazione">${item.exchange || 'SMART'}</span>
                         <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">${item.asset_class || 'stock'}</span>
+                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20" title="Codice ISIN/ASIN">ISIN: ${item.isin || sym}</span>
                       </div>
                       <p class="text-xs text-slate-300 truncate max-w-xs mt-0.5">${item.name || sym}</p>
                     </div>
@@ -1593,17 +1647,23 @@
                   <span class="text-xs font-mono text-slate-400">${item.currency || 'USD'}</span>
                 </div>
 
-                <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
                   <div class="flex items-center gap-2">
-                    <label class="text-[11px] text-slate-400">Budget:</label>
-                    <input type="number" id="searchBudget_${sym}" value="5000" step="500" min="100" class="input-field w-24 px-2 py-1 rounded text-xs font-mono" />
+                    <button onclick="openSymbolChartModal('${sym}', '${(item.name || sym).replace(/'/g, "\\'")}', '${item.exchange || 'SMART'}', '${item.isin || sym}', '${item.currency || 'USD'}')"
+                      class="px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 border border-sky-500/30 text-xs font-semibold transition flex items-center gap-1.5 shadow">
+                      <i class="fa-solid fa-chart-line"></i> Grafico & Prezzi
+                    </button>
+                    <div class="flex items-center gap-1">
+                      <label class="text-[11px] text-slate-400">Budget $:</label>
+                      <input type="number" id="searchBudget_${sym}" value="5000" step="500" min="100" class="input-field w-20 px-2 py-1 rounded text-xs font-mono" />
+                    </div>
                   </div>
                   ${isAlreadyAdded ? `
                     <button disabled class="bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
                       <i class="fa-solid fa-check"></i> Già a Portafoglio
                     </button>
                   ` : `
-                    <button onclick="addFoundSymbolToPortfolio('${sym}', '${(item.name || sym).replace(/'/g, "\\'")}', '${item.asset_class || 'stock'}', '${item.exchange || 'SMART'}', '${item.currency || 'USD'}')"
+                    <button onclick="addFoundSymbolToPortfolio('${sym}', '${(item.name || sym).replace(/'/g, "\\'")}', '${item.asset_class || 'stock'}', '${item.exchange_raw || item.exchange || 'SMART'}', '${item.currency || 'USD'}')"
                       class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-sky-600/20">
                       <i class="fa-solid fa-plus"></i> Aggiungi a Portafoglio
                     </button>
@@ -1616,6 +1676,117 @@
       } catch (e) {
         spinner.classList.add('hidden');
         label.innerText = `Errore durante la ricerca: ${e.message}`;
+      }
+    }
+
+    let activeChartInstance = null;
+
+    async function openSymbolChartModal(sym, name, exchange, isin, currency) {
+      const modal = document.getElementById('symbolChartModal');
+      modal.classList.remove('hidden');
+
+      document.getElementById('modalChartSymbol').innerText = sym;
+      document.getElementById('modalChartName').innerText = name;
+      document.getElementById('modalChartExchange').innerText = exchange;
+      document.getElementById('modalChartIsin').innerText = 'ISIN: ' + isin;
+      document.getElementById('modalChartCurrency').innerText = currency;
+      document.getElementById('modalChartPrice').innerText = '...';
+      document.getElementById('modalChartPrevClose').innerText = '...';
+      document.getElementById('modalChartChange').innerText = '...';
+
+      const spinner = document.getElementById('chartLoadingSpinner');
+      spinner.classList.remove('hidden');
+
+      if (activeChartInstance) {
+        activeChartInstance.destroy();
+        activeChartInstance = null;
+      }
+
+      try {
+        const res = await fetch(`/api/symbols/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`);
+        const data = await res.json();
+        spinner.classList.add('hidden');
+
+        if (data.success && data.data && data.data.length > 0) {
+          const points = data.data;
+          const labels = points.map(p => p.time);
+          const prices = points.map(p => p.close);
+          const currPrice = data.current_price || prices[prices.length - 1];
+          const prevClose = data.previous_close || prices[0];
+          const chg = currPrice - prevClose;
+          const chgPct = prevClose ? (chg / prevClose * 100) : 0;
+
+          document.getElementById('modalChartPrice').innerText = `${currency === 'EUR' ? '€' : '$'}${parseFloat(currPrice).toFixed(2)}`;
+          document.getElementById('modalChartPrevClose').innerText = `${currency === 'EUR' ? '€' : '$'}${parseFloat(prevClose).toFixed(2)}`;
+          const chgEl = document.getElementById('modalChartChange');
+          chgEl.innerText = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`;
+          chgEl.className = `font-mono font-bold text-base ${chgPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+          const ctx = document.getElementById('symbolChartCanvas').getContext('2d');
+          const isUp = chg >= 0;
+          const lineColor = isUp ? '#34d399' : '#f87171';
+          const gradientColor = isUp ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)';
+
+          activeChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: `Prezzo Chiusura ${sym}`,
+                data: prices,
+                borderColor: lineColor,
+                backgroundColor: gradientColor,
+                fill: true,
+                tension: 0.25,
+                borderWidth: 2,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  callbacks: {
+                    label: (context) => ` Prezzo: ${currency === 'EUR' ? '€' : '$'}${parseFloat(context.parsed.y).toFixed(2)}`
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                  ticks: { color: '#94a3b8', font: { size: 10 } }
+                },
+                y: {
+                  grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                  ticks: {
+                    color: '#94a3b8',
+                    font: { size: 10 },
+                    callback: (value) => `${currency === 'EUR' ? '€' : '$'}${value}`
+                  }
+                }
+              }
+            }
+          });
+        } else {
+          document.getElementById('modalChartPrice').innerText = 'Dati N/D';
+        }
+      } catch (err) {
+        spinner.classList.add('hidden');
+        console.error('Errore caricamento grafico', err);
+      }
+    }
+
+    function closeSymbolChartModal() {
+      const modal = document.getElementById('symbolChartModal');
+      modal.classList.add('hidden');
+      if (activeChartInstance) {
+        activeChartInstance.destroy();
+        activeChartInstance = null;
       }
     }
 

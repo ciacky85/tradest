@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.3** (2026-10-17): Risolto errore troncamento Omniroute/DeepSeek aumentando max_tokens a 4096; corretta visualizzazione di data e ora nella tabella operazioni svolte (campo executed_at); blindato il controllo di budget nel motore di trading per inibire tassativamente acquisti multipli se è già detenuta 1 quota o se il valore satura il budget.
+- **v1.7.4** (2026-10-17): Aggiunti nei risultati di ricerca ISIN/mercato di quotazione e popup con grafico storico andamento prezzi (Chart.js) alimentato dal nuovo endpoint Yahoo Finance; resa reale e sincrona la sincronizzazione del portafoglio IBKR forzando connessione e aggiornamento posizioni prima della lettura.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi
