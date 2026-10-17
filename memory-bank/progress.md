@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.4** (2026-10-17): Aggiunti nei risultati di ricerca ISIN/mercato di quotazione e popup con grafico storico andamento prezzi (Chart.js) alimentato dal nuovo endpoint Yahoo Finance; resa reale e sincrona la sincronizzazione del portafoglio IBKR forzando connessione e aggiornamento posizioni prima della lettura.
+- **v1.7.5** (2026-10-17): Chiarita la distinzione tra operazioni reali IBKR e decisioni simulate del motore: gli eventi BUY/SELL registrati dal bot sono marcati come `SIMULATED` e i log indicano esplicitamente che nessun ordine reale è stato inviato a IBKR, evitando di confonderli con esecuzioni reali a portafoglio.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi

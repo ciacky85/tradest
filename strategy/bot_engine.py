@@ -189,14 +189,14 @@ class MultiBotEngine:
                                 stop_loss=float(sl) if sl else None,
                                 take_profit=float(tp) if tp else None,
                                 pnl=0.0,
-                                status="EXECUTED",
-                                details=f"Ingresso LONG scalping su {sym} ({size} {unit}). Setup: {setup}. Motivo: {reasoning[:120]}...",
+                                status="SIMULATED",
+                                details=f"[SIMULATO] Ingresso LONG scalping su {sym} ({size} {unit}). Setup: {setup}. Motivo: {reasoning[:120]}...",
                             )
                             await self.db.log_bot_event(
                                 symbol=sym,
                                 level="SUCCESS",
-                                message=f"Operazione svolta: LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. SL: ${sl} | TP: ${tp}.",
-                                metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size},
+                                message=f"[SIMULATO] Operazione LONG (BUY) per {size} {unit} @ ~${current_price:.2f}. SL: ${sl} | TP: ${tp}. Nessun ordine reale inviato a IBKR.",
+                                metadata={"operation_id": op_id, "action": "BUY", "type": "LONG", "price": current_price, "size": size, "simulated": True},
                             )
                     elif action in ("SELL", "CLOSE"):
                         op_id = f"OP-{sym}-{int(datetime.now(timezone.utc).timestamp())}"
@@ -215,14 +215,14 @@ class MultiBotEngine:
                             stop_loss=float(sl) if sl else None,
                             take_profit=float(tp) if tp else None,
                             pnl=float(pnl_val),
-                            status="EXECUTED",
-                            details=f"Operazione {op_type} ({action}) su {sym} ({size} {unit}). Setup: {setup}. PnL: ${pnl_val:+.2f}.",
+                            status="SIMULATED",
+                            details=f"[SIMULATO] Operazione {op_type} ({action}) su {sym} ({size} {unit}). Setup: {setup}. PnL: ${pnl_val:+.2f}. Nessun ordine reale inviato a IBKR.",
                         )
                         await self.db.log_bot_event(
                             symbol=sym,
                             level="WARNING",
-                            message=f"Operazione svolta: {op_type} ({action}) su {sym} per liquidare posizione esistente o aprire short.",
-                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size},
+                            message=f"[SIMULATO] Operazione {op_type} ({action}) su {sym} per liquidare posizione esistente o aprire short. Nessun ordine reale inviato a IBKR.",
+                            metadata={"operation_id": op_id, "action": action, "type": op_type, "price": current_price, "size": size, "simulated": True},
                         )
                     else:
                         await self.db.log_bot_event(
