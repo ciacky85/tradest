@@ -1348,6 +1348,19 @@
       return now.toLocaleDateString('it-IT') + ' ' + now.toLocaleTimeString('it-IT', { hour12: false });
     }
 
+    function formatDbTimestampLocal(ts) {
+      if (!ts) return '-';
+      let d;
+      if (ts.endsWith('Z') || ts.includes('T')) {
+        d = new Date(ts);
+      } else {
+        // I timestamp SQLite sono in UTC e vengono salvati come "YYYY-MM-DD HH:MM:SS"
+        d = new Date(ts.replace(' ', 'T') + 'Z');
+      }
+      if (isNaN(d.getTime())) return ts;
+      return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour12: false });
+    }
+
     // --- CARICAMENTO LOG VERBOSI & OPERAZIONI ---
     async function fetchBotLogs() {
       const sym = currentSelectedSymbol;
@@ -1368,7 +1381,8 @@
               const color = l.level === 'SUCCESS' ? 'text-emerald-400' :
                             l.level === 'WARNING' ? 'text-amber-400' :
                             l.level === 'ERROR' ? 'text-rose-400' : 'text-slate-300';
-              const time = l.created_at ? l.created_at.split(' ')[1] || l.created_at : '';
+              const fullTime = formatDbTimestampLocal(l.created_at);
+              const time = fullTime.split(' ')[1] || fullTime;
               return `<div class="leading-relaxed"><span class="text-slate-600">[${time}]</span> <span class="font-bold ${color}">[${l.level}]</span> ${l.message}</div>`;
             }).join('');
 
@@ -1403,7 +1417,7 @@
           } else {
             body.innerHTML = ops.map(op => {
               const actColor = op.action === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-              const timeDisplay = op.executed_at || op.created_at || '-';
+              const timeDisplay = formatDbTimestampLocal(op.executed_at || op.created_at);
               return `
                 <tr class="hover:bg-slate-800/40 font-mono text-xs">
                   <td class="px-4 py-2.5 text-slate-300 font-medium">${timeDisplay}</td>

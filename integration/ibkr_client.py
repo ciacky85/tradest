@@ -203,19 +203,30 @@ class IBKRClient:
             if not trade:
                 return {"success": False, "error": "Nessun trade restituito da IBKR", "order_id": None}
 
-            await asyncio.sleep(0.3)
-            order_id = str(trade.order.orderId) if trade.order else None
+            # Attende che l'ordine venga realmente eseguito/riempito (con timeout breve).
+            # Se il mercato è chiuso o l'ordine resta pending, NON viene considerato eseguito.
+            deadline = asyncio.get_event_loop().time() + 6.0
             status = getattr(trade.orderStatus, "status", "Submitted")
+            while asyncio.get_event_loop().time() < deadline:
+                status = getattr(trade.orderStatus, "status", status)
+                if status in ("Filled", "Cancelled", "Inactive", "ApiCancelled"):
+                    break
+                await asyncio.sleep(0.5)
+
+            order_id = str(trade.order.orderId) if trade.order else None
+            filled = status == "Filled"
             return {
-                "success": True,
+                "success": filled,
                 "order_id": order_id,
                 "status": status,
+                "filled": filled,
                 "symbol": symbol,
                 "action": action.upper(),
                 "quantity": float(quantity),
                 "sec_type": sec_type,
                 "exchange": exchange,
                 "currency": currency,
+                "error": None if filled else f"Ordine inviato ma non eseguito (stato IBKR: {status}). Mercato probabilmente chiuso o ordine non riempito.",
             }
         except Exception as e:
             logger.error("Errore invio ordine IBKR", symbol=symbol, action=action, error=str(e))

@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.7** (2026-10-17): Aggiunta colonna `simulated` a `executed_operations` con migrazione automatica e retroclassificazione delle vecchie operazioni `EXECUTED` come simulate; il filtro predefinito ora esclude realmente le operazioni simulate e la UI mostra badge `SIMULATO`.
+- **v1.7.8** (2026-10-17): Corretto l'ordine reale IBKR per marcare `EXECUTED` solo quando lo stato dell'ordine è `Filled` (non basta l'invio, altrimenti `FAILED`); convertiti i timestamp DB da UTC a orario locale Europe/Rome nella console log e nella tabella operazioni.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi
