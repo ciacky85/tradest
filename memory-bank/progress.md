@@ -1,7 +1,7 @@
 # progress.md - AI Trading Bot
 
 ## Versione Corrente
-- **v1.7.1** (2026-10-17): Risolto errore autenticazione IA in schermata configurazione; sincronizzazione automatica credenziali/endpoint prima del test connessione e allineamento token Omniroute in docker-compose.
+- **v1.7.2** (2026-10-17): Ottimizzata e resa reattiva la sincronizzazione manuale e periodica del portafoglio IBKR; aggiunta visualizzazione del timestamp di ultimo aggiornamento nei frame del Quadro Generale Portafoglio, della Schermata Portafoglio Dettagliata, della Tabella Operazioni del Bot e della Console Log di Scalping con animazione e feedback dello stato.
 - **v1.6.1** (2026-10-16): Risolti errori JS su badge IBKR, import asyncio mancanti in simulazione AI con aumento timeout, e connessione asincrona SQLite.
 
 ## Stato Avanzamento Fasi

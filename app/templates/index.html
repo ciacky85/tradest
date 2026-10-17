@@ -131,12 +131,16 @@
                 Quadro Generale Portafoglio & Trading Live
                 <span id="overviewModeBadge" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PAPER</span>
               </h2>
-              <p class="text-xs text-slate-400">Account IBKR: <span id="overviewAccountId" class="font-mono text-sky-300 font-semibold">-</span> | Sincronizzato con Interactive Brokers</p>
+              <p class="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                <span>Account IBKR: <span id="overviewAccountId" class="font-mono text-sky-300 font-semibold">-</span></span>
+                <span>•</span>
+                <span class="text-slate-400"><i class="fa-regular fa-clock text-slate-500 text-[11px]"></i> Ultimo Aggiornamento: <span id="overviewLastSync" class="font-mono text-amber-300 font-medium">In attesa...</span></span>
+              </p>
             </div>
           </div>
 
           <div class="flex items-center gap-2">
-            <button onclick="loadPortfolioData()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 border border-slate-700">
+            <button id="btnOverviewRefresh" onclick="loadPortfolioData()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 border border-slate-700">
               <i class="fa-solid fa-arrows-rotate"></i> Aggiorna Saldi
             </button>
             <button onclick="switchMainScreen('portfolio')" class="px-3 py-1.5 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 text-xs font-semibold transition flex items-center gap-1.5 border border-sky-500/40">
@@ -338,10 +342,13 @@
         <!-- OPERAZIONI SVOLTE ED ESECUZIONI DEL TITOLO (FRAME RIASSUNTIVO ELEGANTE) -->
         <div class="space-y-3">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-list-check text-sky-400"></i> Operazioni Svolte dal Bot (<span class="activeSymLabel text-sky-300">XAUUSD</span>)
-            </h3>
-            <button onclick="fetchBotOperations()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-sky-400"></i> Operazioni Svolte dal Bot (<span class="activeSymLabel text-sky-300">XAUUSD</span>)
+              </h3>
+              <span class="text-[11px] text-slate-400 hidden sm:inline">• Ultimo agg: <span id="operationsLastSync" class="font-mono text-slate-300">-</span></span>
+            </div>
+            <button id="btnOperationsRefresh" onclick="fetchBotOperations()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
               <i class="fa-solid fa-rotate-right"></i> Aggiorna Operazioni
             </button>
           </div>
@@ -372,15 +379,18 @@
         <!-- LOG CONSOLE DI MERCATO & MONITORAGGIO IN BACKGROUND -->
         <div class="space-y-2">
           <div class="flex items-center justify-between text-xs text-slate-400 px-1">
-            <span class="flex items-center gap-1.5 font-semibold">
-              <i class="fa-solid fa-terminal text-sky-400"></i> Console Log & Attività di Scalping (<span class="activeSymLabel text-sky-300 font-mono">XAUUSD</span>)
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="flex items-center gap-1.5 font-semibold">
+                <i class="fa-solid fa-terminal text-sky-400"></i> Console Log & Attività di Scalping (<span class="activeSymLabel text-sky-300 font-mono">XAUUSD</span>)
+              </span>
+              <span class="text-[11px] text-slate-400 hidden sm:inline">• Ultimo agg: <span id="logsLastSync" class="font-mono text-slate-300">-</span></span>
+            </div>
             <div class="flex items-center gap-3">
               <label class="flex items-center gap-1 text-[11px] cursor-pointer">
                 <input type="checkbox" id="autoScrollLogs" checked class="rounded border-slate-700 bg-slate-800 text-sky-500" />
                 <span>Auto-scroll</span>
               </label>
-              <button onclick="fetchBotLogs()" class="hover:text-white transition text-[11px]">
+              <button id="btnLogsRefresh" onclick="fetchBotLogs()" class="hover:text-white transition text-[11px]">
                 <i class="fa-solid fa-rotate-right"></i> Aggiorna
               </button>
             </div>
@@ -405,10 +415,14 @@
             </div>
             <div>
               <h2 class="text-lg font-bold text-white">Portafoglio Interattivo Interactive Brokers</h2>
-              <p class="text-xs text-slate-400">Situazione dettagliata di liquidità, posizioni aperte, ordini pendenti ed esecuzioni storiche</p>
+              <p class="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                <span>Situazione dettagliata di liquidità, posizioni aperte, ordini pendenti ed esecuzioni storiche</span>
+                <span>•</span>
+                <span class="text-slate-300 font-medium"><i class="fa-regular fa-clock text-slate-400 text-[11px]"></i> Ultimo Aggiornamento: <span id="portfolioLastSync" class="font-mono text-emerald-400 font-bold">In attesa...</span></span>
+              </p>
             </div>
           </div>
-          <button onclick="loadPortfolioData()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow">
+          <button id="btnPortfolioSync" onclick="loadPortfolioData()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow">
             <i class="fa-solid fa-arrows-rotate"></i> Sincronizza Adesso
           </button>
         </div>
@@ -1270,11 +1284,18 @@
       document.getElementById('aiTrend7dVal').innerText = '-';
     }
 
+    function formatNowTimestamp() {
+      const now = new Date();
+      return now.toLocaleDateString('it-IT') + ' ' + now.toLocaleTimeString('it-IT', { hour12: false });
+    }
+
     // --- CARICAMENTO LOG VERBOSI & OPERAZIONI ---
     async function fetchBotLogs() {
       const sym = currentSelectedSymbol;
       const container = document.getElementById('botConsoleLogs');
       const autoScroll = document.getElementById('autoScrollLogs')?.checked;
+      const btn = document.getElementById('btnLogsRefresh');
+      if (btn) btn.classList.add('animate-pulse', 'text-sky-300');
 
       try {
         const res = await fetch(`/bot/logs?symbol=${sym}&limit=100`);
@@ -1296,15 +1317,22 @@
               container.scrollTop = container.scrollHeight;
             }
           }
+          const syncEl = document.getElementById('logsLastSync');
+          if (syncEl) syncEl.innerText = formatNowTimestamp();
         }
       } catch (e) {
         console.error('Errore recupero log bot', e);
+      } finally {
+        if (btn) btn.classList.remove('animate-pulse', 'text-sky-300');
       }
     }
 
     async function fetchBotOperations() {
       const sym = currentSelectedSymbol;
       const body = document.getElementById('botOperationsTableBody');
+      const btn = document.getElementById('btnOperationsRefresh');
+      if (btn) btn.classList.add('animate-pulse', 'text-sky-300');
+
       try {
         const res = await fetch(`/bot/operations?symbol=${sym}&limit=30`);
         if (res.ok) {
@@ -1329,14 +1357,29 @@
               `;
             }).join('');
           }
+          const syncEl = document.getElementById('operationsLastSync');
+          if (syncEl) syncEl.innerText = formatNowTimestamp();
         }
       } catch (e) {
         console.error('Errore recupero operazioni', e);
+      } finally {
+        if (btn) btn.classList.remove('animate-pulse', 'text-sky-300');
       }
     }
 
     // --- CARICAMENTO PORTAFOGLIO GLOBALE REALE (IBKR) ---
     async function loadPortfolioData() {
+      const syncBtn = document.getElementById('btnPortfolioSync');
+      const overBtn = document.getElementById('btnOverviewRefresh');
+      if (syncBtn) {
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sincronizzazione...`;
+      }
+      if (overBtn) {
+        overBtn.disabled = true;
+        overBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Aggiornamento...`;
+      }
+
       try {
         const res = await fetch('/portfolio');
         if (res.ok) {
@@ -1364,7 +1407,7 @@
           if (oCash) oCash.innerText = fmt(cashBal);
           const oBuy = document.getElementById('overviewBuyingPower');
           if (oBuy) oBuy.innerText = fmt(buyPow);
-          
+
           const oUnPnL = document.getElementById('overviewUnPnL');
           if (oUnPnL) {
             oUnPnL.innerText = fmt(unPnL);
@@ -1380,83 +1423,118 @@
           const oMargin = document.getElementById('overviewMargin');
           if (oMargin) oMargin.innerText = fmt(margin);
 
-          document.getElementById('overviewOpenPositionsCount').innerText = positions.length;
-          document.getElementById('overviewOpenOrdersCount').innerText = orders.length;
-          document.getElementById('overviewDailyTradesCount').innerText = executions.length;
+          const oPosEl = document.getElementById('overviewOpenPositionsCount');
+          if (oPosEl) oPosEl.innerText = positions.length;
+          const oOrdEl = document.getElementById('overviewOpenOrdersCount');
+          if (oOrdEl) oOrdEl.innerText = orders.length;
+          const oExecEl = document.getElementById('overviewDailyTradesCount');
+          if (oExecEl) oExecEl.innerText = executions.length;
 
           // Aggiorna Schermata Portafoglio Dettagliata
-          document.getElementById('portfolioAccountId').innerText = accId;
-          document.getElementById('portfolioNetLiq').innerText = fmt(totalVal);
-          document.getElementById('portfolioCash').innerText = fmt(cashBal);
-          document.getElementById('portfolioBuyingPower').innerText = fmt(buyPow);
+          const pAcc = document.getElementById('portfolioAccountId');
+          if (pAcc) pAcc.innerText = accId;
+          const pNet = document.getElementById('portfolioNetLiq');
+          if (pNet) pNet.innerText = fmt(totalVal);
+          const pCash = document.getElementById('portfolioCash');
+          if (pCash) pCash.innerText = fmt(cashBal);
+          const pBuy = document.getElementById('portfolioBuyingPower');
+          if (pBuy) pBuy.innerText = fmt(buyPow);
           const pUnPnL = document.getElementById('portfolioUnPnL');
           if (pUnPnL) {
             pUnPnL.innerText = fmt(unPnL);
             pUnPnL.className = `font-mono font-bold text-sm ${unPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
           }
-          document.getElementById('portfolioMargin').innerText = fmt(margin);
-          document.getElementById('portfolioPositionsCount').innerText = positions.length;
-          document.getElementById('portfolioOrdersCount').innerText = orders.length;
-          document.getElementById('portfolioExecsCount').innerText = executions.length;
+          const pMarg = document.getElementById('portfolioMargin');
+          if (pMarg) pMarg.innerText = fmt(margin);
+          const pPosCount = document.getElementById('portfolioPositionsCount');
+          if (pPosCount) pPosCount.innerText = positions.length;
+          const pOrdCount = document.getElementById('portfolioOrdersCount');
+          if (pOrdCount) pOrdCount.innerText = orders.length;
+          const pExecCount = document.getElementById('portfolioExecsCount');
+          if (pExecCount) pExecCount.innerText = executions.length;
 
           // Render Posizioni Aperte
           const posBody = document.getElementById('portfolioPositionsTableBody');
-          if (positions.length === 0) {
-            posBody.innerHTML = `<tr><td colspan="8" class="px-4 py-5 text-center text-slate-500 italic">Nessuna posizione aperta nel conto IBKR.</td></tr>`;
-          } else {
-            posBody.innerHTML = positions.map(p => {
-              const pnlColor = p.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400';
-              return `
-                <tr class="hover:bg-slate-800/40 font-mono text-xs">
-                  <td class="px-4 py-3 font-bold text-white flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${p.symbol}
-                  </td>
-                  <td class="px-4 py-3 text-slate-400">${p.sec_type || 'STK'}</td>
-                  <td class="px-4 py-3 font-bold ${p.direction === 'long' ? 'text-emerald-400' : 'text-rose-400'} uppercase">${p.direction}</td>
-                  <td class="px-4 py-3 font-semibold text-white">${p.quantity}</td>
-                  <td class="px-4 py-3 text-slate-300">€${parseFloat(p.entry_price).toFixed(2)}</td>
-                  <td class="px-4 py-3 text-slate-200">€${parseFloat(p.current_price).toFixed(2)}</td>
-                  <td class="px-4 py-3 text-slate-200">€${parseFloat(p.market_value).toFixed(2)}</td>
-                  <td class="px-4 py-3 font-bold ${pnlColor}">€${parseFloat(p.unrealized_pnl).toFixed(2)}</td>
-                </tr>
-              `;
-            }).join('');
+          if (posBody) {
+            if (positions.length === 0) {
+              posBody.innerHTML = `<tr><td colspan="8" class="px-4 py-5 text-center text-slate-500 italic">Nessuna posizione aperta nel conto IBKR.</td></tr>`;
+            } else {
+              posBody.innerHTML = positions.map(p => {
+                const pnlColor = p.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                return `
+                  <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                    <td class="px-4 py-3 font-bold text-white flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${p.symbol}
+                    </td>
+                    <td class="px-4 py-3 text-slate-400">${p.sec_type || 'STK'}</td>
+                    <td class="px-4 py-3 font-bold ${p.direction === 'long' ? 'text-emerald-400' : 'text-rose-400'} uppercase">${p.direction}</td>
+                    <td class="px-4 py-3 font-semibold text-white">${p.quantity}</td>
+                    <td class="px-4 py-3 text-slate-300">€${parseFloat(p.entry_price).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-slate-200">€${parseFloat(p.current_price).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-slate-200">€${parseFloat(p.market_value).toFixed(2)}</td>
+                    <td class="px-4 py-3 font-bold ${pnlColor}">€${parseFloat(p.unrealized_pnl).toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('');
+            }
           }
 
           // Render Ordini
           const ordBody = document.getElementById('portfolioOrdersTableBody');
-          if (orders.length === 0) {
-            ordBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessun ordine pendente.</td></tr>`;
-          } else {
-            ordBody.innerHTML = orders.map(o => `
-              <tr class="hover:bg-slate-800/40 font-mono text-xs">
-                <td class="px-3 py-2 text-slate-400">${o.order_id}</td>
-                <td class="px-3 py-2 font-bold ${o.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${o.action}</td>
-                <td class="px-3 py-2">${o.total_quantity}</td>
-                <td class="px-3 py-2 text-slate-400">${o.order_type}</td>
-                <td class="px-3 py-2 text-white">${o.lmt_price ? '€' + o.lmt_price : 'MKT'}</td>
-              </tr>
-            `).join('');
+          if (ordBody) {
+            if (orders.length === 0) {
+              ordBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessun ordine pendente.</td></tr>`;
+            } else {
+              ordBody.innerHTML = orders.map(o => `
+                <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                  <td class="px-3 py-2 text-slate-400">${o.order_id}</td>
+                  <td class="px-3 py-2 font-bold ${o.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${o.action}</td>
+                  <td class="px-3 py-2">${o.total_quantity}</td>
+                  <td class="px-3 py-2 text-slate-400">${o.order_type}</td>
+                  <td class="px-3 py-2 text-white">${o.lmt_price ? '€' + o.lmt_price : 'MKT'}</td>
+                </tr>
+              `).join('');
+            }
           }
 
           // Render Esecuzioni
           const execBody = document.getElementById('portfolioExecsTableBody');
-          if (executions.length === 0) {
-            execBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessuna esecuzione recente.</td></tr>`;
-          } else {
-            execBody.innerHTML = executions.slice(0, 10).map(e => `
-              <tr class="hover:bg-slate-800/40 font-mono text-xs">
-                <td class="px-3 py-2 font-bold text-white">${e.symbol}</td>
-                <td class="px-3 py-2 font-bold ${e.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${e.action}</td>
-                <td class="px-3 py-2">${e.quantity}</td>
-                <td class="px-3 py-2">€${parseFloat(e.entry_price || e.exit_price || 0).toFixed(2)}</td>
-                <td class="px-3 py-2 ${e.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">€${parseFloat(e.pnl || 0).toFixed(2)}</td>
-              </tr>
-            `).join('');
+          if (execBody) {
+            if (executions.length === 0) {
+              execBody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-500 italic">Nessuna esecuzione recente.</td></tr>`;
+            } else {
+              execBody.innerHTML = executions.slice(0, 10).map(e => `
+                <tr class="hover:bg-slate-800/40 font-mono text-xs">
+                  <td class="px-3 py-2 font-bold text-white">${e.symbol}</td>
+                  <td class="px-3 py-2 font-bold ${e.action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${e.action}</td>
+                  <td class="px-3 py-2">${e.quantity}</td>
+                  <td class="px-3 py-2">€${parseFloat(e.entry_price || e.exit_price || 0).toFixed(2)}</td>
+                  <td class="px-3 py-2 ${e.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">€${parseFloat(e.pnl || 0).toFixed(2)}</td>
+                </tr>
+              `).join('');
+            }
           }
+
+          // Segna timestamp dell'ultimo aggiornamento nei frame
+          const nowFormatted = formatNowTimestamp();
+          const overSyncEl = document.getElementById('overviewLastSync');
+          if (overSyncEl) overSyncEl.innerText = nowFormatted;
+          const portSyncEl = document.getElementById('portfolioLastSync');
+          if (portSyncEl) portSyncEl.innerText = nowFormatted;
+        } else {
+          console.warn('Risposta non OK da /portfolio', res.status);
         }
       } catch (e) {
         console.error('Errore caricamento portfolio IBKR', e);
+      } finally {
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Sincronizza Adesso`;
+        }
+        if (overBtn) {
+          overBtn.disabled = false;
+          overBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Aggiorna Saldi`;
+        }
       }
     }
 
